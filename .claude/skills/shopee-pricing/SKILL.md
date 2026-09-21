@@ -21,7 +21,14 @@ python3 scripts/calc_price.py --sku BIB-001 --competitor 450
 
 # 別の市場で
 python3 scripts/calc_price.py --sku BIB-001 --market SG
+
+# 発送代行に任せた場合の価格
+python3 scripts/calc_price.py --sku BIB-001 --fulfillment shopeeking
 ```
+
+**発送費は「誰が発送するか」で変わる。** `config/fulfillment.yaml` の `active` が
+発送代行（ShopeeKing等）になっていると、梱包代行料・入庫料・月額費の按分が原価に乗る。
+計算結果のヘッダーに表示されるので、**意図した発送方法で計算されているか毎回確認すること。**
 
 スクリプトが出す3つの価格の意味:
 
@@ -53,6 +60,18 @@ python3 scripts/calc_price.py --sku BIB-001 --market SG
 
 **相手が赤字で売っている可能性を必ず疑うこと。** 追随して共倒れするのが一番よくない。
 
+## 発送方法を切り替えたときは、全商品を値付けし直す
+
+代行に切り替えると1個あたりの発送費が変わるので、**既存の出品価格が下限を割ることがある。**
+切り替えたら必ず全SKUを検算し、下限を割っているものを洗い出す。
+
+```bash
+python3 scripts/compare_fulfillment.py --sku BIB-001 --monthly-units 60
+```
+
+この比較は「現金でいくら増えるか」と「空いた時間を時給いくらで買うことになるか」の
+両方を出す。**現金だけ見て判断しない。**
+
 ## 赤字SKUを見つけたとき
 
 週次レポートの「手を入れるべき商品」に出たSKUは、この順で判断する。
@@ -61,6 +80,7 @@ python3 scripts/calc_price.py --sku BIB-001 --market SG
 2. 利益は出ているが最低ライン未満 → 次のどれかを提案する
    - 値上げ（まず10%。売れ行きを1週間見る）
    - 梱包の軽量化（請求重量が1段下がると送料が丸ごと下がる）
+   - 発送方法の見直し（代行の月額費が重すぎないか。`compare_fulfillment.py` で確認）
    - 仕入れ値の交渉・まとめ買い
    - セット販売化
    - 撤退（上のどれも効かないなら、在庫を売り切って終了）

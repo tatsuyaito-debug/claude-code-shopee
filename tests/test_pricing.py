@@ -35,7 +35,6 @@ def make_policy(**overrides) -> config.PricingPolicy:
     base = dict(
         target_margin_rate=0.25, min_margin_rate=0.10, min_profit_jpy=300.0,
         ads_rate=0.0, fx_buffer_rate=0.0, return_loss_rate=0.0,
-        packaging_jpy=0.0, domestic_ship_jpy=0.0,
     )
     base.update(overrides)
     return config.PricingPolicy(**base)
@@ -80,7 +79,8 @@ def test_price_for_margin_hits_the_target_margin():
     product = pricing.Product(sku="X", name_ja="商品", cost_jpy=1000, weight_g=100)
 
     quote = pricing.price_for_margin(product, market, policy, 0.25, apply_ending=False)
-    assert abs(quote.margin_rate - 0.25) < 1e-6
+    # 売価は小数第2位に丸めるので、利益率もその分だけ厳密な0.25からずれる
+    assert abs(quote.margin_rate - 0.25) < 1e-4
 
 
 def test_rounding_never_drops_below_target_margin():
@@ -168,7 +168,7 @@ def test_apply_price_ending_with_decimal_step():
 
 def _business(**pricing_overrides) -> config.Business:
     return config.Business(
-        shop_name="テスト", primary_market="TW", secondary_markets=[], fulfillment="SLS",
+        shop_name="テスト", primary_market="TW", secondary_markets=[], logistics="SLS",
         monthly_revenue_jpy=0, monthly_profit_jpy=0, daily_work_minutes=60,
         pricing=make_policy(**pricing_overrides),
         selection=config.SelectionPolicy(
@@ -219,6 +219,123 @@ def test_rank_candidates_sorts_by_profit():
 
     ranked = pricing.rank_candidates([cheap, pricey], market, business)
     assert [q.product.sku for q in ranked] == ["B", "A"]
+
+
+# ---------------------------------------------------------------------------
+# 発送主体（自社発送 / 発送代行）
+# ---------------------------------------------------------------------------
+
+def make_fulfillment(**overrides) -> config.Fulfillment:
+    base = dict(
+        code="self", name_ja="自社発送", inbound_jpy=0.0, pick_pack_jpy=0.0,
+        material_jpy=60.0, domestic_to_sls_jpy=300.0, inbound_shipping_jpy_per_lot=0.0,
+        lot_size=1, monthly_fixed_jpy=0.0, expected_monthly_units=1,
+        handling_days=2, labor_minutes_per_order=8.0, updated_at=_dt.date.today(),
+    )
+    base.update(overrides)
+    return config.Fulfillment(**base)
+
+
+def test_fulfillment_cost_includes_every_line_item():
+    ff = make_fulfillment(inbound_jpy=30, pick_pack_jpy=120, material_jpy=50,
+                          domestic_to_sls_jpy=180, inbound_shipping_jpy_per_lot=1200,
+                          lot_size=20, monthly_fixed_jpy=9800, expected_monthly_units=50)
+    # 30 + 120 + 50 + 180 + (1200/20=60) + (9800/50=196) = 636
+    assert ff.per_unit_jpy == 636.0
+
+
+def test_inbound_shipping_is_spread_over_the_lot():
+    """倉庫への納品送料は、まとめて送るほど1個あたりが軽くなる。"""
+    small = make_fulfillment(inbound_shipping_jpy_per_lot=1200, lot_size=10)
+    large = make_fulfillment(inbound_shipping_jpy_per_lot=1200, lot_size=40)
+    assert small.inbound_shipping_per_unit_jpy == 120.0
+    assert large.inbound_shipping_per_unit_jpy == 30.0
+
+
+def test_monthly_fixed_cost_gets_lighter_as_volume_grows():
+    """月額固定費は出荷数が少ないほど1個あたり重い。代行の判断で一番効く性質。"""
+    ff = make_fulfillment(monthly_fixed_jpy=9800, material_jpy=0.0, domestic_to_sls_jpy=0.0)
+    assert ff.cost_at_volume(10) == 980.0
+    assert ff.cost_at_volume(100) == 98.0
+    assert ff.cost_at_volume(0) == 0.0      # 出荷ゼロなら変動費だけを返す
+
+
+def test_fulfillment_cost_is_included_in_landed_cost():
+    market = make_market()
+    policy = make_policy()
+    product = pricing.Product(sku="X", name_ja="商品", cost_jpy=1000, weight_g=100)
+
+    free = pricing.cost_breakdown(product, market, policy, fulfillment=config.Fulfillment.none())
+    paid = pricing.cost_breakdown(product, market, policy, fulfillment=make_fulfillment())
+    assert paid.landed_cost_jpy - free.landed_cost_jpy == 360.0
+
+
+def test_expensive_fulfillment_raises_the_required_price():
+    """発送費が上がれば、同じ利益率を保つのに必要な売価も上がる。"""
+    market = make_market()
+    policy = make_policy()
+    product = pricing.Product(sku="X", name_ja="商品", cost_jpy=1000, weight_g=100)
+
+    cheap = pricing.price_for_margin(product, market, policy, 0.25,
+                                     apply_ending=False, fulfillment=make_fulfillment())
+    pricey = pricing.price_for_margin(product, market, policy, 0.25, apply_ending=False,
+                                      fulfillment=make_fulfillment(pick_pack_jpy=200))
+    assert pricey.price_local > cheap.price_local
+    assert abs(pricey.margin_rate - 0.25) < 1e-4
+
+
+def test_stale_fulfillment_pricing_is_flagged():
+    """代行の料金表が古いまま使われないようにする。"""
+    old = make_fulfillment(updated_at=_dt.date.today() - _dt.timedelta(days=400))
+    fresh = make_fulfillment(updated_at=_dt.date.today())
+    assert old.is_stale()
+    assert not fresh.is_stale()
+
+
+def test_crossover_returns_none_when_agency_variable_cost_is_higher():
+    """変動費で負けている代行は、出荷数を増やしても現金では逆転しない。
+
+    ここを取り違えると「数が出れば代行が得」と誤った助言をしてしまう。
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import compare_fulfillment as cf
+
+    me = make_fulfillment()                                   # 変動費 360円
+    agency = make_fulfillment(code="agency", material_jpy=50, domestic_to_sls_jpy=180,
+                              pick_pack_jpy=120, inbound_jpy=30,   # 変動費 380円
+                              monthly_fixed_jpy=9800, expected_monthly_units=50)
+    assert cf.crossover_units(me, agency) is None
+
+
+def test_crossover_is_found_when_agency_variable_cost_is_lower():
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import compare_fulfillment as cf
+
+    me = make_fulfillment()                                    # 変動費 360円・固定費なし
+    agency = make_fulfillment(code="agency", material_jpy=0.0, domestic_to_sls_jpy=260.0,
+                              monthly_fixed_jpy=5000)          # 変動費 260円・固定費5000円
+    # (5000 - 0) / (360 - 260) = 50個
+    assert cf.crossover_units(me, agency) == 50.0
+
+
+def test_unfilled_agency_pricing_is_detected():
+    """料金を入れ忘れた代行を「タダで最強」と誤判定しないこと。"""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import compare_fulfillment as cf
+
+    blank = make_fulfillment(code="shopeeking", material_jpy=0.0, domestic_to_sls_jpy=0.0)
+    assert cf.is_unfilled(blank)
+    assert not cf.is_unfilled(make_fulfillment(code="shopeeking"))
+    assert not cf.is_unfilled(make_fulfillment(code="self", material_jpy=0.0,
+                                               domestic_to_sls_jpy=0.0))
+    # 費用ゼロの内部用ダミーも「入力漏れ」扱いにはしない
+    assert not config.Fulfillment.none().looks_unpriced()
+
+
+def test_real_fulfillment_config_loads():
+    active, providers = config.load_fulfillments()
+    assert active in providers
+    assert "self" in providers, "自社発送の設定は比較の基準なので必須"
 
 
 # ---------------------------------------------------------------------------

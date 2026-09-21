@@ -37,8 +37,10 @@ def show_quote(label: str, quote: pricing.Quote, market) -> None:
     print(f"  売価           : {quote.price_local:,.2f} {market.currency}"
           f"  (円換算 約 {quote.revenue_jpy:,.0f}円 ※為替バッファ込み)")
     print(f"  ├ 仕入れ(実質) : -{c.effective_cost_jpy:,.0f}円")
-    print(f"  ├ 国内送料     : -{c.domestic_ship_jpy:,.0f}円")
-    print(f"  ├ 梱包資材     : -{c.packaging_jpy:,.0f}円")
+    print(f"  ├ 発送費       : -{c.fulfillment_jpy:,.0f}円  ({c.fulfillment_name})")
+    for label, amount in c.fulfillment_items:
+        if amount:
+            print(f"  │   ・{label}: -{amount:,.0f}円")
     print(f"  ├ 国際送料     : -{c.international_ship_jpy:,.0f}円"
           f"  (請求重量 {c.billable_weight_kg:.2f}kg)")
     print(f"  ├ Shopee手数料 : -{quote.fee_jpy:,.0f}円")
@@ -58,10 +60,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--points", type=float, default=0.0, help="仕入れ時のポイント還元率（例: 0.1）")
     parser.add_argument("--market", help="市場コード（既定: business.yaml の primary_market）")
     parser.add_argument("--competitor", type=float, help="競合の売価（現地通貨）")
+    parser.add_argument("--fulfillment", help="発送主体（既定: fulfillment.yaml の active）"
+                                              " 例: self / shopeeking")
     args = parser.parse_args(argv)
 
     business = config.load_business()
     market = config.get_market(args.market or business.primary_market)
+    fulfillment = config.get_fulfillment(args.fulfillment)
 
     if args.sku:
         products = {p.sku: p for p in catalog.load_products()}
@@ -79,13 +84,23 @@ def main(argv: list[str] | None = None) -> int:
             points_back_rate=args.points,
         )
 
-    result = pricing.recommend(product, market, business, args.competitor)
+    result = pricing.recommend(product, market, business, args.competitor, fulfillment)
 
     print("=" * 68)
     print(f"  {product.name_ja}  [{product.sku}]")
     print(f"  販売先: {market.name_ja}({market.code})   "
           f"為替: 1{market.currency} = {market.fx_jpy_per_unit}円"
           f"（{market.fx_age_days()}日前の値）")
+    print(f"  発送　: {fulfillment.name_ja}   "
+          f"1個あたり発送費 {fulfillment.per_unit_jpy:,.0f}円 / "
+          f"出荷まで{fulfillment.handling_days}日 / 自分の手間 {fulfillment.labor_minutes_per_order:g}分")
+    if fulfillment.looks_unpriced():
+        print()
+        print(f"  ⚠️ {fulfillment.name_ja} の料金が未入力です（全項目0円）。")
+        print(f"     発送費を0円として計算しているため、この売価は安すぎます。")
+        print(f"     config/fulfillment.yaml の providers.{fulfillment.code} に契約の実数を入れてください。")
+    elif fulfillment.is_stale():
+        print(f"  ⚠️ 発送費の料金が {fulfillment.updated_at} 以降更新されていません。改定の有無を確認してください。")
     print("=" * 68)
 
     target: pricing.Quote = result["target"]        # type: ignore[assignment]
@@ -102,6 +117,10 @@ def main(argv: list[str] | None = None) -> int:
 
     print("\n── 判定 ──")
     verdict: pricing.Verdict = result["verdict"]    # type: ignore[assignment]
+    if fulfillment.looks_unpriced():
+        print(f"  ⛔ {fulfillment.name_ja} の料金が未入力のため、この計算は信用できません。")
+        print()
+        return 2
     if verdict.ok:
         print("  ✅ 出品してよい条件です。")
     else:

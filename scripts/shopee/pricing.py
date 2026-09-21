@@ -24,7 +24,7 @@ import math
 from dataclasses import dataclass, replace
 from typing import Iterable
 
-from .config import Business, Market, PricingPolicy
+from .config import Business, Fulfillment, Market, PricingPolicy
 
 
 @dataclass(frozen=True)
@@ -58,18 +58,18 @@ class CostBreakdown:
     """1個売るのにかかる、売上に比例しない費用。"""
 
     effective_cost_jpy: float
-    domestic_ship_jpy: float
-    packaging_jpy: float
+    fulfillment_jpy: float                    # 梱包・発送にかかる費用（自社でも代行でも）
     international_ship_jpy: float
     billable_weight_kg: float
     volumetric_weight_kg: float
+    fulfillment_name: str = ""
+    fulfillment_items: tuple[tuple[str, float], ...] = ()   # 表示用の内訳
 
     @property
     def landed_cost_jpy(self) -> float:
         return (
             self.effective_cost_jpy
-            + self.domestic_ship_jpy
-            + self.packaging_jpy
+            + self.fulfillment_jpy
             + self.international_ship_jpy
         )
 
@@ -140,14 +140,17 @@ def international_ship_jpy(product: Product, market: Market) -> float:
 
 
 def cost_breakdown(product: Product, market: Market, policy: PricingPolicy,
-                   count_points: bool = True) -> CostBreakdown:
+                   count_points: bool = True,
+                   fulfillment: Fulfillment | None = None) -> CostBreakdown:
+    ff = fulfillment or Fulfillment.none()
     return CostBreakdown(
         effective_cost_jpy=product.effective_cost_jpy(count_points),
-        domestic_ship_jpy=policy.domestic_ship_jpy,
-        packaging_jpy=policy.packaging_jpy,
+        fulfillment_jpy=ff.per_unit_jpy,
         international_ship_jpy=international_ship_jpy(product, market),
         billable_weight_kg=billable_weight_kg(product, market),
         volumetric_weight_kg=volumetric_weight_kg(product, market),
+        fulfillment_name=ff.name_ja,
+        fulfillment_items=tuple(ff.items()),
     )
 
 
@@ -199,11 +202,12 @@ def variable_rate(market: Market, policy: PricingPolicy) -> float:
 
 
 def quote_at_price(product: Product, market: Market, policy: PricingPolicy,
-                   price_local: float, count_points: bool = True) -> Quote:
+                   price_local: float, count_points: bool = True,
+                   fulfillment: Fulfillment | None = None) -> Quote:
     """現地価格を決め打ちしたときの損益を出す（競合価格に合わせる時に使う）。"""
     fx = effective_fx(market, policy)
     revenue_jpy = price_local * fx
-    costs = cost_breakdown(product, market, policy, count_points)
+    costs = cost_breakdown(product, market, policy, count_points, fulfillment)
 
     fee_jpy = revenue_jpy * market.fees.total_rate + market.fees.fixed_fee_local * fx
     ads_jpy = revenue_jpy * policy.ads_rate
@@ -225,7 +229,8 @@ def quote_at_price(product: Product, market: Market, policy: PricingPolicy,
 
 def price_for_margin(product: Product, market: Market, policy: PricingPolicy,
                      margin_rate: float, count_points: bool = True,
-                     apply_ending: bool = True) -> Quote:
+                     apply_ending: bool = True,
+                     fulfillment: Fulfillment | None = None) -> Quote:
     """目標利益率を満たす現地売価を逆算する。"""
     rate = variable_rate(market, policy)
     denom = 1.0 - rate - margin_rate
@@ -237,25 +242,28 @@ def price_for_margin(product: Product, market: Market, policy: PricingPolicy,
         )
 
     fx = effective_fx(market, policy)
-    costs = cost_breakdown(product, market, policy, count_points)
+    costs = cost_breakdown(product, market, policy, count_points, fulfillment)
     required_revenue_jpy = (costs.landed_cost_jpy + market.fees.fixed_fee_local * fx) / denom
     raw_price = required_revenue_jpy / fx
 
     price = apply_price_ending(raw_price, market.round_to, market.psychological_ending) \
         if apply_ending else round(raw_price, 2)
-    return quote_at_price(product, market, policy, price, count_points)
+    return quote_at_price(product, market, policy, price, count_points, fulfillment)
 
 
 def breakeven_price(product: Product, market: Market, policy: PricingPolicy,
-                    count_points: bool = True) -> float:
+                    count_points: bool = True,
+                    fulfillment: Fulfillment | None = None) -> float:
     """利益ゼロになる現地価格。これ以下は必ず赤字。"""
     return price_for_margin(
-        product, market, policy, margin_rate=0.0, count_points=count_points, apply_ending=False
+        product, market, policy, margin_rate=0.0, count_points=count_points,
+        apply_ending=False, fulfillment=fulfillment
     ).price_local
 
 
 def recommend(product: Product, market: Market, business: Business,
-              competitor_price_local: float | None = None) -> dict[str, object]:
+              competitor_price_local: float | None = None,
+              fulfillment: Fulfillment | None = None) -> dict[str, object]:
     """AI社員が値付けするときの標準フロー。
 
     目標価格・損益分岐・（あれば）競合価格に合わせた場合の損益をまとめて返す。
@@ -263,16 +271,19 @@ def recommend(product: Product, market: Market, business: Business,
     policy = business.pricing
     count_points = bool((business.sourcing or {}).get("count_points_as_discount", True))
 
-    target = price_for_margin(product, market, policy, policy.target_margin_rate, count_points)
-    floor = price_for_margin(product, market, policy, policy.min_margin_rate, count_points)
+    target = price_for_margin(product, market, policy, policy.target_margin_rate,
+                              count_points, fulfillment=fulfillment)
+    floor = price_for_margin(product, market, policy, policy.min_margin_rate,
+                             count_points, fulfillment=fulfillment)
     result: dict[str, object] = {
         "target": target,
         "floor": floor,                                   # これ以上は下げない下限価格
-        "breakeven_price_local": breakeven_price(product, market, policy, count_points),
+        "breakeven_price_local": breakeven_price(product, market, policy, count_points, fulfillment),
         "verdict": judge(target, business, market),
     }
     if competitor_price_local is not None:
-        matched = quote_at_price(product, market, policy, competitor_price_local, count_points)
+        matched = quote_at_price(product, market, policy, competitor_price_local,
+                                 count_points, fulfillment)
         result["competitor_match"] = matched
         result["competitor_verdict"] = judge(matched, business, market)
     return result
@@ -316,14 +327,16 @@ def judge(quote: Quote, business: Business, market: Market) -> Verdict:
     return Verdict(ok=not reasons, reasons=reasons)
 
 
-def rank_candidates(products: Iterable[Product], market: Market, business: Business) -> list[Quote]:
+def rank_candidates(products: Iterable[Product], market: Market, business: Business,
+                    fulfillment: Fulfillment | None = None) -> list[Quote]:
     """候補商品を「1個あたり利益が大きい順」に並べる。
 
     利益率ではなく利益額で並べるのは、作業時間が有限で
     1件の発送にかかる手間がほぼ一定だから（率が高くても数十円では意味がない）。
     """
     quotes = [
-        price_for_margin(p, market, business.pricing, business.pricing.target_margin_rate)
+        price_for_margin(p, market, business.pricing, business.pricing.target_margin_rate,
+                         fulfillment=fulfillment)
         for p in products
     ]
     return sorted(quotes, key=lambda q: q.profit_jpy, reverse=True)

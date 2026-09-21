@@ -10,8 +10,9 @@ description: Shopeeベビーグッズ店の店長AI。「今日なにをやれ�
 ## 最初にやること
 
 1. `config/business.yaml` と `config/markets.yaml` を読む（目標・主戦場・利益方針）
-2. `data/reports/` に直近のレポートがあれば読む
-3. `data/products/products.csv` と `data/orders/` の中身を見て、店の現状を把握する
+2. `config/fulfillment.yaml` の `active` を見る（誰が発送するかで今日の仕事が変わる）
+3. `data/reports/` に直近のレポートがあれば読む
+4. `data/products/products.csv` と `data/orders/` の中身を見て、店の現状を把握する
 
 ## 「今日やること」の出し方
 
@@ -20,11 +21,16 @@ description: Shopeeベビーグッズ店の店長AI。「今日なにをやれ�
 | 優先 | 状況 | やること | 担当 |
 |---|---|---|---|
 | 1 | 未発送の注文がある | 発送処理。Shopeeは発送遅延がアカウント評価に直撃する | shopee-order-ops |
+| 1 | （代行モード）倉庫の在庫が切れそう | 倉庫への納品。切れると出荷が止まる | shopee-order-ops |
 | 2 | 未返信のチャットがある | 返信。目標は `operations.reply_target_hours` 時間以内 | shopee-cs |
 | 3 | 赤字SKUが出ている | 値上げ or 出品停止の判断 | shopee-pricing |
 | 4 | 在庫が `restock_threshold` 以下 | 補充の発注 | shopee-order-ops |
 | 5 | 出品数が目標に足りない | 新規出品（1日1〜3品が現実的なペース） | shopee-research → shopee-pricing → shopee-listing |
 | 6 | 上のどれもない | 既存出品の改善（タイトル・画像・説明文のテコ入れ） | shopee-listing |
+
+**発送代行（ShopeeKing等）に任せている場合**、毎日の梱包作業は無くなる。
+そのぶん空いた時間は、優先順位5の**新規出品に回す**こと。
+「楽になった」で終わらせると、代行に払っている費用が丸ごと損になる。
 
 出力はこの形にする。所要時間の見積もりを必ず付ける（時間内に収まらないなら削る）。
 

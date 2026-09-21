@@ -12,7 +12,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from .config import Business, Market
+from .config import Business, Fulfillment, Market
 from .orders import Order, is_completed
 from .pricing import Product, quote_at_price
 
@@ -78,7 +78,8 @@ class Summary:
 
 
 def summarize(orders: Iterable[Order], products: Iterable[Product], market: Market,
-              business: Business, start: str = "", end: str = "") -> Summary:
+              business: Business, start: str = "", end: str = "",
+              fulfillment: Fulfillment | None = None) -> Summary:
     by_sku_product = {p.sku: p for p in products}
     summary = Summary(market=market, business=business, start=start, end=end)
     unknown: set[str] = set()
@@ -111,7 +112,8 @@ def summarize(orders: Iterable[Order], products: Iterable[Product], market: Mark
             summary.revenue_jpy += revenue_jpy
             continue
 
-        quote = quote_at_price(product, market, business.pricing, order.price_local)
+        quote = quote_at_price(product, market, business.pricing, order.price_local,
+                               fulfillment=fulfillment)
         stat.revenue_jpy += quote.revenue_jpy * order.quantity
         stat.profit_jpy += quote.profit_jpy * order.quantity
         summary.revenue_jpy += quote.revenue_jpy * order.quantity

@@ -27,11 +27,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--start", help="集計開始日 YYYY-MM-DD（--days より優先）")
     parser.add_argument("--end", help="集計終了日 YYYY-MM-DD")
     parser.add_argument("--orders-dir", type=Path, help="注文CSVの置き場（既定: data/orders）")
+    parser.add_argument("--fulfillment", help="発送主体（既定: fulfillment.yaml の active）")
     parser.add_argument("--stdout", action="store_true", help="ファイルに書かず標準出力へ")
     args = parser.parse_args(argv)
 
     business = config.load_business()
     market = config.get_market(args.market or business.primary_market)
+    fulfillment = config.get_fulfillment(args.fulfillment)
 
     today = _dt.date.today()
     end = args.end or today.isoformat()
@@ -54,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"⚠️ {exc}\n   原価が分からないので、利益は0として集計します。\n", file=sys.stderr)
         products = []
 
-    summary = kpi.summarize(period_orders, products, market, business, start, end)
+    summary = kpi.summarize(period_orders, products, market, business, start, end, fulfillment)
     text = kpi.render_markdown(summary, catalog.stock_map(), today)
 
     if args.stdout:

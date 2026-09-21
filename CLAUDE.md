@@ -30,13 +30,15 @@ Shopee（東南アジア・台湾のECモール）で **ベビーグッズを日
 config/           事業の設定。数字の判断はすべてここが根拠
   business.yaml     目標・利益方針・商品選定基準
   markets.yaml      市場別の為替・手数料・送料   ★数字は実データに要更新
+  fulfillment.yaml  誰が梱包・発送するか（自社発送 / ShopeeKing発送代行）★料金は要更新
   compliance.yaml   禁止・要確認カテゴリ、禁止表現
   csv_templates/    Shopee CSV の列マッピング     ★実テンプレに要差し替え
 scripts/          道具。AIはこれを実行して答えを出す
-  calc_price.py         利益計算・推奨売価
-  build_listing_csv.py  出品案の検証とCSV書き出し
-  weekly_report.py      週次レポート生成
-  shopee/               ライブラリ本体
+  calc_price.py           利益計算・推奨売価
+  compare_fulfillment.py  自社発送と発送代行の損得比較
+  build_listing_csv.py    出品案の検証とCSV書き出し
+  weekly_report.py        週次レポート生成
+  shopee/                 ライブラリ本体
 data/
   products/products.csv   商品マスタ（原価・重量・在庫）
   products/drafts/        出品案のYAML
@@ -50,6 +52,9 @@ tests/            計算ロジックのテスト
 ## 作業するときの決まり
 
 - 値付けの答えを出す前に `python3 scripts/calc_price.py` を実行する
+- **発送や在庫の話をする前に `config/fulfillment.yaml` の `active` を確認する。**
+  自社発送か発送代行かで、作業フロー・リードタイム・原価が変わる
+- 発送方法の切り替えを聞かれたら `python3 scripts/compare_fulfillment.py` を実行する
 - 出品CSVを作る前に `--check-only` で検証を通す
 - 売上・利益を語る前に `python3 scripts/weekly_report.py` を実行する
 - `config/markets.yaml` の為替が古い警告が出たら、**数字を語る前に更新を依頼する**
@@ -60,10 +65,12 @@ tests/            計算ロジックのテスト
 - `config/compliance.yaml` の `prohibited` に例外を作らない
 - 損益分岐点を下回る価格を提案しない
 - 顧客への返金・返品の約束を、オーナーの確認なしに確定しない
+- 発送代行の料金が未入力（全項目0円）のまま「代行のほうが得」と結論づけない
 - 認証情報（Shopeeのキー等）をリポジトリに書かない。環境変数か `.env` に置く
 
 ## 設定の数字について
 
-`config/markets.yaml` の手数料率・送料・為替は **プレースホルダ**。
-Seller Centre と SLS 料金表の実数に置き換えるまで、計算結果は目安でしかない。
+`config/markets.yaml` の手数料率・送料・為替、および `config/fulfillment.yaml` の
+発送代行の料金は **プレースホルダ**。
+Seller Centre・SLS料金表・代行業者の契約の実数に置き換えるまで、計算結果は目安でしかない。
 数字を使って重要な判断をするときは、まず更新されているか確認すること。

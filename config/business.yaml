@@ -8,7 +8,8 @@ shop:
   base_country: JP
   primary_market: TW          # 主戦場。まずここに集中する
   secondary_markets: [SG, MY] # 台湾で型ができてから横展開
-  fulfillment: SLS            # 日本で仕入れ → Shopee国際物流(SLS)で越境発送
+  logistics: SLS              # 越境の物流チャネル（日本→Shopee国際物流SLS→現地）
+  # 誰が梱包して発送するかは config/fulfillment.yaml の active で切り替える
 
 goals:
   # 月次の目標。週次レポートはこの数字に対する進捗で書かれます。
@@ -24,8 +25,7 @@ pricing:
   ads_rate: 0.05              # 売上に対する広告費の想定比率
   fx_buffer_rate: 0.03        # 為替の逆風に備えた安全マージン（売上を3%割り引いて計算）
   return_loss_rate: 0.02      # 返品・破損・紛失による目減り想定
-  packaging_jpy: 60           # 1個あたりの梱包資材費
-  domestic_ship_jpy: 300      # 仕入れ先→自宅→SLS集荷倉庫 までの国内送料（1個按分）
+  # 梱包資材費・国内送料は config/fulfillment.yaml（発送主体ごと）に移しました
 
 sourcing:
   # 仕入れ候補。AI社員が仕入れ計画を立てるときに参照します。
@@ -64,7 +64,9 @@ selection:
     - キャラクター雑貨（正規品かつ再販可のもののみ）
 
 operations:
-  handling_days: 2            # 注文から発送までの自社リードタイム（日）
+  # 自分の時間の値段。発送代行に払う費用と、空く時間を比べるのに使う。
+  hourly_value_jpy: 1500
+  # 注文から発送までのリードタイムは config/fulfillment.yaml の handling_days を使う
   restock_threshold: 3        # 在庫がこの数を切ったら補充アラート
   reply_target_hours: 12      # チャット返信の目標時間（Shopeeの評価に効く）
   # 週次レビューをする曜日（週報スクリプトの基準）
