@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 認証情報は絶対にコミットしない
+.env
+*.key
+secrets.yaml
+
+# 生成物
+data/products/upload_*.csv
+data/reports/*.md
+!data/reports/.gitkeep
+
+.DS_Store

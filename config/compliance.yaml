@@ -1,0 +1,115 @@
+# =============================================================================
+# ベビーグッズ越境販売の「触ってはいけない / 要確認」リスト
+# -----------------------------------------------------------------------------
+# ★免責: これは AI社員が最初のふるいをかけるためのチェックリストであって、
+#   法的助言ではありません。赤(prohibited)・黄(restricted)に当たったら、
+#   必ず Shopee の禁止商品ポリシーと輸入先国の規制を自分の目で確認してください。
+#   ベビー用品は「子どもの安全」に直結するため、他カテゴリより審査が厳しめです。
+# =============================================================================
+
+prohibited:   # 出品しない。AI社員は候補から機械的に除外する
+  - id: formula_milk
+    label: 粉ミルク・乳児用液体ミルク
+    reason: 多くの国で輸入規制対象。食品衛生・表示規制が非常に厳しい
+  - id: baby_food
+    label: ベビーフード・離乳食（中身のある food itself）
+    reason: 食品輸入許可が必要。個人セラーの越境では原則不可
+  - id: medicine_supplement
+    label: 乳児用の薬・サプリ・軟膏類
+    reason: 医薬品規制。無許可輸入は違法になりうる
+  - id: car_seat
+    label: チャイルドシート・ジュニアシート
+    reason: 各国の安全規格(ECE/JIS等)認証が必要。事故時の責任が重い
+  - id: crib_bedding_soft
+    label: ベビーベッド用のふかふか寝具・枕（乳児用）
+    reason: 窒息リスクで規制・回収対象になりやすい
+  - id: used_babygoods_intimate
+    label: 中古の哺乳瓶・おしゃぶり・肌着など衛生品
+    reason: 衛生規制および Shopee の中古品ポリシーに抵触しやすい
+  - id: counterfeit_character
+    label: 非正規のキャラクター商品
+    reason: 知的財産権侵害。アカウント即停止の最頻出要因
+  - id: lithium_battery_toy
+    label: リチウム電池内蔵のおもちゃ・ベビーモニター
+    reason: 航空危険物。SLSで送れない / 追加書類が必要
+
+restricted:   # 出品前に必ず確認。AI社員は「要確認」フラグを立てて人間に回す
+  - id: teether_pacifier
+    label: 歯固め・おしゃぶり
+    reason: 口に入る製品は食品接触材料規制の対象になる国がある
+    check: 輸入先国の乳幼児製品規格と、メーカーの試験成績書の有無
+  - id: skincare
+    label: ベビーローション・クリーム・日焼け止め
+    reason: 化粧品登録が必要な国が多い（特にMY/ID）
+    check: 対象国の化粧品規制。台湾は比較的通るが品目による
+  - id: tableware
+    label: ベビー食器・カトラリー・ストローマグ
+    reason: 食品接触材料の溶出試験が求められる場合がある
+    check: 素材（BPAフリー表記の根拠）とメーカー資料
+  - id: sling_carrier
+    label: 抱っこ紐・スリング
+    reason: 安全基準あり。落下事故のリスク商品
+    check: 規格認証の有無。無認証の無名ブランドは扱わない
+  - id: toy_small_parts
+    label: 3歳未満向けおもちゃ全般
+    reason: 誤飲・小部品規制、玩具安全基準(EN71/ST等)
+    check: 年齢表示と安全基準マークの有無
+  - id: brand_resale
+    label: ブランド品（正規品の転売）
+    reason: 正規品でもブランドによっては越境出品が制限される
+    check: Shopeeのブランド保護リストと、仕入れ証憑（レシート/納品書）の保管
+
+# 出品文に書いてはいけない表現（規制・アカウント停止リスク）
+forbidden_claims:
+  - pattern: 医学的効果（治る・予防する・アレルギーが治まる 等）
+    why: 医薬品的効能の標榜。雑貨では違法表現になる
+  - pattern: 「100%安全」「事故ゼロ」などの絶対表現
+    why: 根拠のない断定。トラブル時に致命傷になる
+  - pattern: 根拠のない「日本製」「Made in Japan」
+    why: 原産地の虚偽表示。必ず製品の実表記を確認してから書く
+  - pattern: '他社ブランド名をタイトルに詰め込む（例: "〇〇風" "vs Pigeon"）'
+    why: 商標権侵害・キーワードスパム判定
+
+# 必ず出品文に入れる注意書き（AI社員が自動で付ける）
+required_disclaimers:
+  zh-Hant: "※ 本商品由日本直送，商品外包裝可能因運送而有輕微壓痕，不影響商品本身。使用時請務必有成人在旁陪同。"
+  en: "※ Shipped directly from Japan. Outer packaging may show minor dents from international transit. Adult supervision is required during use."
+  ja: "※ 日本から直送のため外箱に軽微なへこみが生じる場合があります。ご使用の際は必ず大人の方が付き添ってください。"
+
+# 機械チェック用：出品文にこの文字列が含まれていたら警告する
+# （上の forbidden_claims を、スクリプトが判定できる具体語に落としたもの）
+forbidden_terms:
+  ja:
+    - 治る
+    - 治療
+    - 予防できる
+    - 完全無害
+    - 100%安全
+    - 絶対に安全
+    - 医療用
+    - 副作用なし
+  en:
+    - cure
+    - cures
+    - treats illness
+    - 100% safe
+    - completely safe
+    - medical grade
+    - no side effects
+    - prevents disease
+  zh-Hant:
+    - 治療
+    - 療效
+    - 百分之百安全
+    - 100%安全
+    - 絕對安全
+    - 醫療級
+    - 無副作用
+    - 預防疾病
+
+# タイトルの上限文字数（Shopeeの仕様変更時はここを直す）
+limits:
+  title_max_chars: 120
+  description_min_chars: 200
+  images_min: 3
+  images_max: 9

@@ -1,0 +1,71 @@
+# =============================================================================
+# Seller Centre から落とす「注文CSV」の列名を、このリポジトリ側の項目名に対応づける
+# -----------------------------------------------------------------------------
+# Shopee の注文CSVは国・時期で列名が違うので、候補を並べて上から一致したものを使う。
+# 自分のCSVの列名がここに無ければ、該当項目の aliases に1行足してください。
+# =============================================================================
+
+aliases:
+  order_sn:
+    - "Order ID"
+    - "訂單編號"
+    - "order_sn"
+  order_date:
+    - "Order Creation Date"
+    - "訂單成立時間"
+    - "Order Paid Time"
+    - "order_create_time"
+  status:
+    - "Order Status"
+    - "訂單狀態"
+    - "status"
+  sku:
+    - "SKU Reference No."
+    - "商品選項貨號"
+    - "SKU"
+    - "seller_sku"
+  product_name:
+    - "Product Name"
+    - "商品名稱"
+    - "item_name"
+  variation:
+    - "Variation Name"
+    - "商品選項名稱"
+  quantity:
+    - "Quantity"
+    - "數量"
+    - "qty"
+  price_local:
+    - "Deal Price"
+    - "商品成交價"
+    - "Product Subtotal"
+    - "price"
+  buyer_paid_local:
+    - "Total Amount"
+    - "買家總支付金額"
+    - "order_total"
+  shipping_fee_local:
+    - "Buyer Paid Shipping Fee"
+    - "買家支付運費"
+  buyer:
+    - "Username (Buyer)"
+    - "買家帳號"
+
+# 「売れた」とみなす注文ステータス（集計の分母から取り消し・返品を外すため）
+completed_statuses:
+  - Completed
+  - COMPLETED
+  - Shipped
+  - SHIPPED
+  - 完成
+  - 已完成
+  - 運送中
+cancelled_statuses:
+  - Cancelled
+  - CANCELLED
+  - Unpaid
+  - UNPAID
+  - 已取消
+  - 未付款
+  - Returned
+  - 退貨/退款

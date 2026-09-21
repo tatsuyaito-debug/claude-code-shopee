@@ -1,0 +1,5 @@
+# 実行に必要なのはこれだけ（Python 3.11 以上）
+PyYAML>=6.0
+
+# テストを pytest で走らせたい場合（無くても python3 tests/test_pricing.py で動く）
+# pytest>=8.0

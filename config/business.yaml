@@ -1,0 +1,71 @@
+# =============================================================================
+# 事業の基本方針（AI社員が判断の拠り所にする数字とルール）
+# ここを変えると、値付け・商品選定・出品判断のすべてが変わります。
+# =============================================================================
+
+shop:
+  name: ""                    # 例: "Baby Marche JP"
+  base_country: JP
+  primary_market: TW          # 主戦場。まずここに集中する
+  secondary_markets: [SG, MY] # 台湾で型ができてから横展開
+  fulfillment: SLS            # 日本で仕入れ → Shopee国際物流(SLS)で越境発送
+
+goals:
+  # 月次の目標。週次レポートはこの数字に対する進捗で書かれます。
+  monthly_revenue_jpy: 300000
+  monthly_profit_jpy: 90000
+  # 1日にかけられる作業時間（AI社員はこの時間内に収まるタスク量を出す）
+  daily_work_minutes: 60
+
+pricing:
+  target_margin_rate: 0.25    # 目標の営業利益率（販売額に対する比率）
+  min_margin_rate: 0.12       # これを下回る値付けは「出品しない」判断にする
+  min_profit_jpy: 300         # 1個あたり最低利益額。率が良くても額が小さい商品は捨てる
+  ads_rate: 0.05              # 売上に対する広告費の想定比率
+  fx_buffer_rate: 0.03        # 為替の逆風に備えた安全マージン（売上を3%割り引いて計算）
+  return_loss_rate: 0.02      # 返品・破損・紛失による目減り想定
+  packaging_jpy: 60           # 1個あたりの梱包資材費
+  domestic_ship_jpy: 300      # 仕入れ先→自宅→SLS集荷倉庫 までの国内送料（1個按分）
+
+sourcing:
+  # 仕入れ候補。AI社員が仕入れ計画を立てるときに参照します。
+  channels:
+    - name: 西松屋・バースデイ
+      type: 実店舗
+      note: セール品の型落ちが狙い目。まとめ買いで原価を下げる
+    - name: Amazon.co.jp / 楽天
+      type: オンライン
+      note: ポイント還元を実質原価から差し引いて計算する
+    - name: 問屋・卸サイト（NETSEA, スーパーデリバリー等）
+      type: 卸
+      note: 要事業者登録。ロットは大きいが原価が安定する
+    - name: メーカー直取引
+      type: 卸
+      note: 実績が出てから交渉。独占的に扱えると一番強い
+  # 実質原価の計算にポイント還元を織り込むか
+  count_points_as_discount: true
+
+selection:
+  # 越境ベビーグッズの「勝てる商品」条件。リサーチ担当がこの基準でスコアリングします。
+  max_weight_g: 800           # 軽いほど利益が残る。800g超は原則見送り
+  max_longest_side_cm: 40     # 大きいと容積重量で送料が跳ねる
+  min_sell_price_jpy: 1500    # 安すぎる商品は送料負けする
+  avoid_fragile: true         # ガラス・陶器など割れ物は避ける
+  avoid_battery: true         # リチウム電池内蔵は越境で扱いが面倒
+  avoid_liquid: true          # 液体は規制・漏れリスク
+  prefer_keywords_ja:         # 日本製の強みが出るジャンル
+    - 離乳食グッズ
+    - おむつポーチ
+    - スタイ / よだれかけ
+    - 歯固め
+    - ベビー食器
+    - 授乳ケープ
+    - 日本製ガーゼ / タオル
+    - キャラクター雑貨（正規品かつ再販可のもののみ）
+
+operations:
+  handling_days: 2            # 注文から発送までの自社リードタイム（日）
+  restock_threshold: 3        # 在庫がこの数を切ったら補充アラート
+  reply_target_hours: 12      # チャット返信の目標時間（Shopeeの評価に効く）
+  # 週次レビューをする曜日（週報スクリプトの基準）
+  weekly_review_weekday: MON

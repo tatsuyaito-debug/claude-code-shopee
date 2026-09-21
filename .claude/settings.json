@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 scripts/calc_price.py:*)",
+      "Bash(python3 scripts/build_listing_csv.py:*)",
+      "Bash(python3 scripts/weekly_report.py:*)",
+      "Bash(python3 tests/test_pricing.py)",
+      "Bash(python3 -m pytest:*)",
+      "Read(//home/user/claude-code-shopee/**)"
+    ]
+  }
+}

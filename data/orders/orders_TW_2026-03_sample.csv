@@ -1,0 +1,7 @@
+Order ID,訂單成立時間,Order Status,SKU Reference No.,Product Name,Quantity,Deal Price,Total Amount,Buyer Paid Shipping Fee,Username (Buyer)
+2603010001,2026/03/01 10:22,Completed,BIB-001,日本製純棉紗布圍兜 3件組,2,679,1408,50,mama***tw
+2603020002,2026/03/02 18:05,Completed,TEE-002,矽膠固齒器 草莓造型,1,299,349,50,yuki***88
+2603030003,2026/03/03 09:41,Completed,PCH-003,日本製防水尿布收納包,1,899,949,50,lin***chen
+2603040004,2026/03/04 21:13,已取消,BIB-001,日本製純棉紗布圍兜 3件組,1,679,729,50,test***user
+2603050005,2026/03/05 12:00,Completed,TEE-002,矽膠固齒器 草莓造型,3,249,797,50,ahua***tw
+2603060006,2026/03/06 15:30,Completed,UNK-999,未登録のテスト商品,1,450,500,50,new***buyer

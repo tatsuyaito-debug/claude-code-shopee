@@ -1,0 +1,57 @@
+# =============================================================================
+# 出品案テンプレート（台湾向け）
+# 出品担当AIがこの形式で書き、scripts/build_listing_csv.py が検証してCSVにします。
+#   python3 scripts/build_listing_csv.py data/products/drafts/sample_tw.yaml
+# =============================================================================
+
+market: TW
+template: default_mass_upload
+
+listings:
+  - sku: BIB-001
+    name_ja: 日本製ガーゼスタイ 3枚組     # 自分用メモ。CSVには出ません
+    language: zh-Hant
+    category_id: "100017"                # ★Seller Centreの実際のカテゴリIDに直す
+    brand: No Brand
+
+    # タイトル: 検索されるキーワードを前に。120字以内。
+    # 型 → [日本直送] + 素材/特徴 + 商品名 + 用途 + 対象 + 入数
+    title: "日本直送 純棉六層紗布圍兜 3件組 新生兒口水巾 吸水透氣 寶寶餵食圍兜 嬰兒用品 彌月禮"
+
+    # 説明文: 冒頭3行で「誰の何を解決するか」。箇条書きで仕様。最後に注意書き。
+    description: |
+      【日本直送・純棉六層紗布圍兜 3件組】
+
+      寶寶的口水總是弄濕衣領嗎？本款圍兜採用日本常用的六層紗布織法，
+      吸水力強又透氣，洗過之後會越來越柔軟，貼合寶寶細嫩的肌膚。
+
+      ■ 商品規格
+      ・材質：純棉 100%（六層紗布）
+      ・尺寸：約 20cm × 15cm
+      ・數量：3 件組（顏色隨機出貨）
+      ・適用年齡：0 個月以上
+      ・產地：日本
+
+      ■ 特色
+      ・六層紗布結構，吸水後不易回滲
+      ・頸圍採用按扣設計，可隨寶寶成長調整
+      ・可機洗，越洗越柔軟
+      ・輕薄好收納，外出攜帶方便
+
+      ■ 關於出貨
+      ・本賣場商品皆由日本直接寄出，出貨後約 7〜14 個工作天送達
+      ・下單前請確認收件資訊正確
+
+    price_local: 679                      # scripts/calc_price.py で出した推奨売価
+    stock: 12
+    weight_g: 150
+    length_cm: 20
+    width_cm: 15
+    height_cm: 4
+
+    # 画像URL（最低3枚）。Shopeeにアップ済みのURL、または画像ファイル名。
+    images:
+      - "https://example.com/bib-001-main.jpg"
+      - "https://example.com/bib-001-detail.jpg"
+      - "https://example.com/bib-001-size.jpg"
+      - "https://example.com/bib-001-usage.jpg"

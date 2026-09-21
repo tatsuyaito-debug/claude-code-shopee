@@ -1,0 +1,50 @@
+# =============================================================================
+# 一括アップロード(Mass Upload)CSV の列定義
+# -----------------------------------------------------------------------------
+# ★重要: Shopee の公式テンプレートは「国 × カテゴリ」で列が違い、更新もされます。
+#   Seller Centre > 商品管理 > 一括ツール から本物のテンプレを1度ダウンロードし、
+#   その1行目の列名をこの header にコピーしてください。
+#   （header = テンプレの列名 / field = このリポジトリ側の項目名）
+# =============================================================================
+
+name: 汎用テンプレート（要差し替え）
+encoding: utf-8-sig     # Excelで開いたときに文字化けしないようBOM付きUTF-8
+columns:
+  - header: "ei_product_id"
+    field: sku
+  - header: "Category"
+    field: category_id
+  - header: "Product Name"
+    field: title
+  - header: "Product Description"
+    field: description
+  - header: "Brand"
+    field: brand
+  - header: "Variation Name"
+    field: variation_name
+  - header: "Option"
+    field: variation_option
+  - header: "Price"
+    field: price_local
+  - header: "Stock"
+    field: stock
+  - header: "Weight(kg)"
+    field: weight_kg
+  - header: "Length(cm)"
+    field: length_cm
+  - header: "Width(cm)"
+    field: width_cm
+  - header: "Height(cm)"
+    field: height_cm
+  - header: "SKU Reference No."
+    field: sku
+  - header: "Cover image"
+    field: image_1
+  - header: "Image 2"
+    field: image_2
+  - header: "Image 3"
+    field: image_3
+  - header: "Image 4"
+    field: image_4
+  - header: "Image 5"
+    field: image_5
