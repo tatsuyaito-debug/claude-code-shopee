@@ -169,8 +169,8 @@ def test_apply_price_ending_with_decimal_step():
 
 def _business(**pricing_overrides) -> config.Business:
     return config.Business(
-        shop_name="テスト", account_status="active", primary_market="TW",
-        secondary_markets=[], logistics="SLS",
+        shop_name="テスト", account_status="active", operator_access="direct",
+        primary_market="TW", secondary_markets=[], logistics="SLS",
         monthly_revenue_jpy=0, monthly_profit_jpy=0, daily_work_minutes=60,
         pricing=make_policy(**pricing_overrides),
         selection=config.SelectionPolicy(
@@ -899,6 +899,33 @@ def test_max_cost_goes_negative_when_the_price_is_too_low():
     product = pricing.Product(sku="X", name_ja="重い商品", cost_jpy=0, weight_g=900)
 
     assert pricing.max_cost_jpy(product, market, policy, 150, 0.25) < 0
+
+def test_operator_access_defaults_to_direct_when_absent():
+    """operator_access を書いていない設定でも読めること。"""
+    import shutil
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        dst = Path(d)
+        for name in ("business.yaml", "markets.yaml", "compliance.yaml", "fulfillment.yaml"):
+            shutil.copy(config.CONFIG_DIR / name, dst / name)
+        text = (dst / "business.yaml").read_text(encoding="utf-8")
+        text = "\n".join(l for l in text.splitlines() if "operator_access" not in l)
+        (dst / "business.yaml").write_text(text, encoding="utf-8")
+
+        assert config.load_business(dst).operator_access == "direct"
+
+
+def test_proxy_mode_is_fine_while_order_volume_is_low():
+    """注文が少ないうちは、夫が窓口のままでよいと判定されること。"""
+    cs = _load_check_setup()
+    assert cs.PROXY_LIMIT_ORDERS > 0
+    # しきい値未満なら「条件が来たら」、超えたら「いま」になる設計
+    assert 0 < cs.PROXY_LIMIT_ORDERS <= 50
+
+
+def test_real_business_config_has_a_known_operator_access():
+    assert config.load_business().operator_access in ("proxy", "direct")
 
 
 if __name__ == "__main__":

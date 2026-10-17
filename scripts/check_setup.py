@@ -32,6 +32,11 @@ DONE = "done"      # 埋まっている
 # 発送代行が割に合い始めるおおよその出荷数。これ未満なら月額費の按分が重すぎる。
 AGENCY_THRESHOLD_UNITS = 20
 
+# 夫が窓口でいられる注文数の目安（直近30日）。これを超えると、
+# 「奥さんが聞く → 夫が手を空ける → 答える」の往復が毎日発生して
+# CS返信や発送判断が詰まり始める。
+PROXY_LIMIT_ORDERS = 20
+
 
 def agency_status(units_last_30d: int, verified: bool, unpriced: bool) -> str:
     """発送代行の料金を「いま調べるべきか」を決める。
@@ -239,6 +244,33 @@ def build_items() -> list[Item]:
             ],
         ))
 
+    # ---------------- 実務担当のアクセス ----------------
+    if business.operator_access == "proxy":
+        over = units >= PROXY_LIMIT_ORDERS
+        items.append(Item(
+            key="operator_access",
+            title="実務担当（奥さん）専用のClaudeアカウント",
+            status=NOW if over else LATER,
+            minutes=20,
+            now_value=f"いまは夫が窓口（proxy）／ {units_note}",
+            why=(
+                "注文が増えて、夫の仲介がボトルネックになり始めています。"
+                "CS返信の遅れと発送判断の遅れに直結します"
+                if over else
+                "注文が少ないうちは夫の仲介で回ります。Claude Code は有料プラン"
+                "（Pro以上）が必要なので、売上が立つ前に契約を増やす必要はありません"
+            ),
+            trigger=f"直近30日の出荷が{PROXY_LIMIT_ORDERS}個を超えたら（いま {units}個）",
+            how=[
+                "奥さんに GitHub アカウントを作ってもらう（無料）",
+                "リポジトリに Collaborator として招待する（権限は Write）",
+                "奥さんの Claude アカウントで Pro 以上のプランに加入してもらう",
+                "claude.ai/code で GitHub を連携し、claude-code-shopee を選ぶ",
+                "手順の詳細は docs/運用担当の方へ.md",
+                "切り替えたら config/business.yaml の operator_access を direct にする",
+            ],
+        ))
+
     # ---------------- 店名 ----------------
     items.append(Item(
         key="shop_name",
@@ -260,6 +292,10 @@ def render(items: list[Item]) -> int:
     print("=" * 66)
 
     business = config.load_business()
+    if business.operator_access == "proxy":
+        print()
+        print("  👤 いまは夫が窓口（operator_access: proxy）")
+        print("     奥さんはShopeeアプリで動き、判断が要るものだけ夫経由で聞く体制です。")
     if business.account_status == "pending":
         print()
         print("  📋 アカウント申請中です（config/business.yaml の account_status: pending）")

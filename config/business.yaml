@@ -9,6 +9,12 @@ shop:
   # （手数料率・SLS送料）は「今やらなくていい」扱いになります。
   # 出店が完了したら active に変えてください。
   account_status: pending     # pending（申請中） / active（出店済み）
+  # 実務担当（奥さん）がこの仕組みをどう使うか。
+  #   proxy  … 夫が窓口。奥さんはShopeeアプリで動き、判断が要るものだけ夫経由
+  #   direct … 奥さんが自分のClaudeアカウントで直接使う（Pro以上の契約が必要）
+  # 注文が増えて夫の仲介がボトルネックになったら direct に切り替える。
+  # 切り替えどきは check_setup.py が注文数を見て教えます。
+  operator_access: proxy
   base_country: JP
   primary_market: TW          # 主戦場。まずここに集中する
   secondary_markets: [SG, MY] # 台湾で型ができてから横展開
