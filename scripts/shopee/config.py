@@ -33,6 +33,7 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class Fees:
+    verified: bool
     commission_rate: float
     transaction_fee_rate: float
     service_fee_rate: float
@@ -46,6 +47,7 @@ class Fees:
 
 @dataclass(frozen=True)
 class Shipping:
+    verified: bool
     base_jpy: float
     per_kg_jpy: float
     max_weight_kg: float
@@ -120,6 +122,7 @@ class Fulfillment:
     handling_days: int
     labor_minutes_per_order: float      # 1注文あたり自分が使う時間（分）
     updated_at: _dt.date | None = None
+    verified: bool = False
     note: str = ""
 
     @property
@@ -220,6 +223,7 @@ def load_fulfillments(config_dir: Path | None = None) -> tuple[str, dict[str, Fu
             handling_days=int(p.get("handling_days", 2)),
             labor_minutes_per_order=float(p.get("labor_minutes_per_order", 0.0)),
             updated_at=_as_date(updated, f"{where}.updated_at") if updated else None,
+            verified=bool(p.get("verified", False)),
             note=p.get("note", ""),
         )
 
@@ -303,12 +307,14 @@ def load_markets(config_dir: Path | None = None) -> dict[str, Market]:
             fx_jpy_per_unit=fx_rate,
             fx_updated_at=_as_date(_require(fx_raw, "updated_at", f"{where}.fx"), f"{where}.fx.updated_at"),
             fees=Fees(
+                verified=bool(fees_raw.get("verified", False)),
                 commission_rate=float(fees_raw.get("commission_rate", 0.0)),
                 transaction_fee_rate=float(fees_raw.get("transaction_fee_rate", 0.0)),
                 service_fee_rate=float(fees_raw.get("service_fee_rate", 0.0)),
                 fixed_fee_local=float(fees_raw.get("fixed_fee_local", 0.0)),
             ),
             shipping=Shipping(
+                verified=bool(ship_raw.get("verified", False)),
                 base_jpy=float(ship_raw.get("base_jpy", 0.0)),
                 per_kg_jpy=float(_require(ship_raw, "per_kg_jpy", f"{where}.shipping")),
                 max_weight_kg=float(ship_raw.get("max_weight_kg", 20.0)),

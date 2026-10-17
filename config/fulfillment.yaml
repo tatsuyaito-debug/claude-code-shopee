@@ -20,6 +20,7 @@ providers:
   self:
     name_ja: 自社発送（自分で梱包）
     updated_at: 2026-09-21
+    verified: false              # 梱包資材と国内送料を実額で確認したら true
     per_unit:                      # 1個あたりにかかる費用（円）
       inbound_jpy: 0               # 入庫料。自社発送では発生しない
       pick_pack_jpy: 0             # 梱包作業料。自分の手間なので現金は出ない
@@ -42,6 +43,7 @@ providers:
   shopeeking:
     name_ja: ShopeeKing 発送代行
     updated_at: 2026-09-21
+    verified: false              # ShopeeKingの見積り・契約書で確認したら true
     per_unit:                      # ★すべて契約の実数に要更新
       inbound_jpy: 0               # 入庫料（倉庫で受け取ってもらう費用）／個
       pick_pack_jpy: 0             # 梱包・ラベル貼付の代行料／個

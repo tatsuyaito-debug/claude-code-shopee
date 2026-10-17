@@ -50,6 +50,9 @@ Claude Code に日本語で話しかけるだけで、商品選定・値付け�
 ## 道具（AIが裏で使うスクリプト）
 
 ```bash
+# 設定で何がまだ仮の数字か、それをいつ埋めるべきか
+python3 scripts/check_setup.py
+
 # この商品、いくらで売れば儲かる？
 python3 scripts/calc_price.py --cost 1200 --weight 150 --size 20x15x4
 

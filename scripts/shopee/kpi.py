@@ -231,6 +231,19 @@ def render_markdown(summary: Summary, stock: dict[str, int] | None = None,
         lines += [f"- `{sku}`" for sku in summary.unknown_skus]
         lines.append("")
 
+    unverified = []
+    if not m.fees.verified:
+        unverified.append("Shopee手数料")
+    if not m.shipping.verified:
+        unverified.append("SLS国際送料")
+    if unverified:
+        lines += [
+            f"> ⚠️ **{' と '.join(unverified)} がまだ仮の数字です。**"
+            " 利益の金額は目安として読んでください。"
+            "調べ方は `python3 scripts/check_setup.py`。",
+            "",
+        ]
+
     if m.fx_is_stale():
         lines += [
             "> ⚠️ **為替レートが古いです**"

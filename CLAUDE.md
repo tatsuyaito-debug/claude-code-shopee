@@ -34,6 +34,7 @@ config/           事業の設定。数字の判断はすべてここが根拠
   compliance.yaml   禁止・要確認カテゴリ、禁止表現
   csv_templates/    Shopee CSV の列マッピング     ★実テンプレに要差し替え
 scripts/          道具。AIはこれを実行して答えを出す
+  check_setup.py          設定の健診。何がまだ仮の数字か、いつ埋めるべきか
   calc_price.py           利益計算・推奨売価
   compare_fulfillment.py  自社発送と発送代行の損得比較
   build_listing_csv.py    出品案の検証とCSV書き出し
@@ -52,6 +53,8 @@ tests/            計算ロジックのテスト
 
 ## 作業するときの決まり
 
+- 「設定を埋めたい」「何から手をつければいい？」と聞かれたら
+  `python3 scripts/check_setup.py` を実行して、その結果だけを根拠に答える
 - 値付けの答えを出す前に `python3 scripts/calc_price.py` を実行する
 - **発送や在庫の話をする前に `config/fulfillment.yaml` の `active` を確認する。**
   自社発送か発送代行かで、作業フロー・リードタイム・原価が変わる
@@ -71,7 +74,8 @@ tests/            計算ロジックのテスト
 
 ## 設定の数字について
 
-`config/markets.yaml` の手数料率・送料・為替、および `config/fulfillment.yaml` の
-発送代行の料金は **プレースホルダ**。
+`config/markets.yaml` の手数料率・送料、および `config/fulfillment.yaml` の
+発送代行の料金は **プレースホルダ**。実データで確認したら `verified: true` にする決まりで、
+false のあいだは calc_price.py と週次レポートが「目安です」と注記を出す。
 Seller Centre・SLS料金表・代行業者の契約の実数に置き換えるまで、計算結果は目安でしかない。
 数字を使って重要な判断をするときは、まず更新されているか確認すること。

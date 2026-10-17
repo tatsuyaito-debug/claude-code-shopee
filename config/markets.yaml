@@ -25,16 +25,20 @@ markets:
     listing_language: zh-Hant   # 出品文は繁体字中国語
     cs_language: zh-Hant
     fx:
-      jpy_per_unit: 4.80        # 1 TWD = ? JPY  ★要更新
-      updated_at: 2026-09-21
-    # 販売額にかかる率（小数。0.06 = 6%）★要更新
+      jpy_per_unit: 4.86        # 1 TWD = ? JPY（中値。月1回は更新する）
+      updated_at: 2026-10-17
+    # 販売額にかかる率（小数。0.06 = 6%）
     fees:
+      # Seller Centre の手数料ページで自分のアカウントの実数を確認したら true にする。
+      # false のあいだ、計算結果は「目安」としてscripts側が警告します。
+      verified: false
       commission_rate: 0.06       # 販売手数料
       transaction_fee_rate: 0.02  # 決済手数料
       service_fee_rate: 0.00      # 有料プログラム(無料配送等)に入っている場合のみ
       fixed_fee_local: 0.0        # 1注文あたり固定手数料（現地通貨）
-    # SLS 国際送料（請求重量ベース）★要更新
+    # SLS 国際送料（請求重量ベース）
     shipping:
+      verified: false           # SLSの料金表で確認したら true
       base_jpy: 180.0           # 1個あたりの基本料
       per_kg_jpy: 950.0         # 1kgあたり
       max_weight_kg: 20.0       # これを超えると出品不可扱い
@@ -58,11 +62,13 @@ markets:
       jpy_per_unit: 115.0       # ★要更新
       updated_at: 2026-09-21
     fees:
+      verified: false
       commission_rate: 0.06
       transaction_fee_rate: 0.02
       service_fee_rate: 0.00
       fixed_fee_local: 0.0
     shipping:
+      verified: false
       base_jpy: 220.0
       per_kg_jpy: 1250.0
       max_weight_kg: 20.0
@@ -85,11 +91,13 @@ markets:
       jpy_per_unit: 34.0        # ★要更新
       updated_at: 2026-09-21
     fees:
+      verified: false
       commission_rate: 0.06
       transaction_fee_rate: 0.02
       service_fee_rate: 0.00
       fixed_fee_local: 0.0
     shipping:
+      verified: false
       base_jpy: 200.0
       per_kg_jpy: 1100.0
       max_weight_kg: 20.0

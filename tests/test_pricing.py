@@ -14,16 +14,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from shopee import config, listing, orders, pricing  # noqa: E402
+from shopee import config, kpi, listing, orders, pricing  # noqa: E402
 
 
 def make_market(**overrides) -> config.Market:
     base = dict(
         code="TW", name_ja="台湾", currency="TWD", listing_language="zh-Hant", cs_language="zh-Hant",
         fx_jpy_per_unit=5.0, fx_updated_at=_dt.date.today(),
-        fees=config.Fees(commission_rate=0.06, transaction_fee_rate=0.02,
+        fees=config.Fees(verified=True, commission_rate=0.06, transaction_fee_rate=0.02,
                          service_fee_rate=0.0, fixed_fee_local=0.0),
-        shipping=config.Shipping(base_jpy=200.0, per_kg_jpy=1000.0, max_weight_kg=20.0),
+        shipping=config.Shipping(verified=True, base_jpy=200.0, per_kg_jpy=1000.0,
+                                 max_weight_kg=20.0),
         psychological_ending=None, round_to=1.0, volumetric_divisor=6000.0,
         weight_step_g=100, fx_max_age_days=14,
     )
@@ -442,6 +443,95 @@ def test_real_compliance_has_required_sections():
     comp = config.load_compliance()
     for key in ("prohibited", "restricted", "forbidden_terms", "required_disclaimers", "limits"):
         assert key in comp, f"compliance.yaml に {key} がありません"
+# ---------------------------------------------------------------------------
+# セットアップ健診
+# ---------------------------------------------------------------------------
+
+def _load_check_setup():
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import check_setup
+
+    return check_setup
+
+
+def test_agency_is_postponed_while_volume_is_low():
+    """出荷が少ないうちは、代行の料金を調べさせない（使い道がないので）。"""
+    cs = _load_check_setup()
+    assert cs.agency_status(0, verified=False, unpriced=True) == cs.LATER
+    assert cs.agency_status(5, verified=False, unpriced=True) == cs.LATER
+
+
+def test_agency_becomes_actionable_once_volume_grows():
+    cs = _load_check_setup()
+    assert cs.agency_status(cs.AGENCY_THRESHOLD_UNITS, verified=False, unpriced=True) == cs.NOW
+    assert cs.agency_status(100, verified=False, unpriced=True) == cs.NOW
+
+
+def test_agency_already_priced_is_done_regardless_of_volume():
+    cs = _load_check_setup()
+    assert cs.agency_status(0, verified=True, unpriced=False) == cs.DONE
+
+
+def test_sample_rows_do_not_count_as_real_products(tmp_path=None):
+    """サンプル行を実商品と数えてしまうと「重量は入っている」と誤判定する。"""
+    cs = _load_check_setup()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "products.csv"
+        path.write_text(
+            "sku,name_ja,cost_jpy,weight_g,note\n"
+            "A-1,サンプル品,100,50,サンプル行\n"
+            "B-2,実物,200,,\n"
+            "C-3,実物2,300,120,\n",
+            encoding="utf-8-sig",
+        )
+        real, sample, missing = cs.catalog_state(path)
+    assert (real, sample, missing) == (2, 1, 1)
+
+
+def test_sample_order_files_are_not_counted_as_results():
+    """サンプルの注文CSVを実績に数えると、代行の判断を誤る。"""
+    cs = _load_check_setup()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d) / "orders_TW_sample.csv").write_text(
+            "Order ID,訂單成立時間,Order Status,SKU Reference No.,Product Name,Quantity,Deal Price,Total Amount\n"
+            "1,2026-10-10,Completed,A-1,p,5,100,500\n",
+            encoding="utf-8-sig",
+        )
+        units, note = cs.monthly_units_shipped(Path(d))
+    assert units == 0
+    assert "サンプル" in note
+
+
+def test_real_order_files_are_counted_within_30_days():
+    cs = _load_check_setup()
+    import tempfile
+
+    today = _dt.date(2026, 10, 17)
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d) / "orders_TW_2026-10.csv").write_text(
+            "Order ID,訂單成立時間,Order Status,SKU Reference No.,Product Name,Quantity,Deal Price,Total Amount\n"
+            "1,2026-10-10,Completed,A-1,p,3,100,300\n"
+            "2,2026-08-01,Completed,A-1,p,9,100,900\n"   # 30日より前なので数えない
+            "3,2026-10-12,已取消,A-1,p,4,100,400\n",     # 取消なので数えない
+            encoding="utf-8-sig",
+        )
+        units, _ = cs.monthly_units_shipped(Path(d), today=today)
+    assert units == 3
+
+
+def test_unverified_config_is_flagged_in_the_report():
+    """仮の数字のまま利益を語らせないための注記が週報に出ること。"""
+    market = make_market()
+    market = config.Market(**{**market.__dict__,
+                             "fees": config.Fees(verified=False, commission_rate=0.06,
+                                                 transaction_fee_rate=0.02, service_fee_rate=0.0,
+                                                 fixed_fee_local=0.0)})
+    summary = kpi.Summary(market=market, business=_business(), start="2026-10-01", end="2026-10-07")
+    assert "仮の数字" in kpi.render_markdown(summary)
 
 
 if __name__ == "__main__":

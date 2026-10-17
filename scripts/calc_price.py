@@ -94,6 +94,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  発送　: {fulfillment.name_ja}   "
           f"1個あたり発送費 {fulfillment.per_unit_jpy:,.0f}円 / "
           f"出荷まで{fulfillment.handling_days}日 / 自分の手間 {fulfillment.labor_minutes_per_order:g}分")
+    unverified = []
+    if not market.fees.verified:
+        unverified.append("Shopee手数料")
+    if not market.shipping.verified:
+        unverified.append("SLS国際送料")
+    if unverified:
+        print()
+        print(f"  ⚠️ {' と '.join(unverified)} がまだ仮の数字です（config/markets.yaml）。")
+        print("     この計算は目安です。実数の調べ方は python3 scripts/check_setup.py")
+
     if fulfillment.looks_unpriced():
         print()
         print(f"  ⚠️ {fulfillment.name_ja} の料金が未入力です（全項目0円）。")
