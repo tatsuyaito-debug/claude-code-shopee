@@ -5,6 +5,10 @@
 
 shop:
   name: ""                    # 例: "Baby Marche JP"
+  # アカウントの状態。pending のあいだ、Seller Centre を見ないと分からない設定
+  # （手数料率・SLS送料）は「今やらなくていい」扱いになります。
+  # 出店が完了したら active に変えてください。
+  account_status: pending     # pending（申請中） / active（出店済み）
   base_country: JP
   primary_market: TW          # 主戦場。まずここに集中する
   secondary_markets: [SG, MY] # 台湾で型ができてから横展開

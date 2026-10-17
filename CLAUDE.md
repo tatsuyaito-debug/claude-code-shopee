@@ -56,6 +56,11 @@ tests/            計算ロジックのテスト
 - 「設定を埋めたい」「何から手をつければいい？」と聞かれたら
   `python3 scripts/check_setup.py` を実行して、その結果だけを根拠に答える
 - 値付けの答えを出す前に `python3 scripts/calc_price.py` を実行する
+- **手数料・SLS送料が暫定値のあいだも、出品準備は止めない。**
+  calc_price.py が「暫定値のリスク確認」として悲観ケース（手数料+3pt・送料+40%）を
+  併記するので、そこで黒字が残るなら価格を決めて進めてよい。赤字になる商品だけ保留する
+- `config/business.yaml` の `account_status` が `pending` のあいだは、
+  Seller Centre を見ないと分からない設定を今やらせない
 - **発送や在庫の話をする前に `config/fulfillment.yaml` の `active` を確認する。**
   自社発送か発送代行かで、作業フロー・リードタイム・原価が変わる
 - 発送方法の切り替えを聞かれたら `python3 scripts/compare_fulfillment.py` を実行する
@@ -75,7 +80,8 @@ tests/            計算ロジックのテスト
 ## 設定の数字について
 
 `config/markets.yaml` の手数料率・送料、および `config/fulfillment.yaml` の
-発送代行の料金は **プレースホルダ**。実データで確認したら `verified: true` にする決まりで、
-false のあいだは calc_price.py と週次レポートが「目安です」と注記を出す。
+発送代行の料金は **暫定値**。実データで確認したら `verified: true` にする決まりで、
+false のあいだは calc_price.py が悲観ケースを併記し、週次レポートが注記を出す。
+暫定値であること自体は作業を止める理由にならない。止めるのは、悲観ケースで赤字になる商品だけ。
 Seller Centre・SLS料金表・代行業者の契約の実数に置き換えるまで、計算結果は目安でしかない。
 数字を使って重要な判断をするときは、まず更新されているか確認すること。

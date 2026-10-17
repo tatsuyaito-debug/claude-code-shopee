@@ -169,7 +169,8 @@ def test_apply_price_ending_with_decimal_step():
 
 def _business(**pricing_overrides) -> config.Business:
     return config.Business(
-        shop_name="テスト", primary_market="TW", secondary_markets=[], logistics="SLS",
+        shop_name="テスト", account_status="active", primary_market="TW",
+        secondary_markets=[], logistics="SLS",
         monthly_revenue_jpy=0, monthly_profit_jpy=0, daily_work_minutes=60,
         pricing=make_policy(**pricing_overrides),
         selection=config.SelectionPolicy(
@@ -532,6 +533,94 @@ def test_unverified_config_is_flagged_in_the_report():
                                                  fixed_fee_local=0.0)})
     summary = kpi.Summary(market=market, business=_business(), start="2026-10-01", end="2026-10-07")
     assert "仮の数字" in kpi.render_markdown(summary)
+
+# ---------------------------------------------------------------------------
+# 暫定値のリスク確認（手数料・送料が未確定のまま進めてよいかの判断）
+# ---------------------------------------------------------------------------
+
+def test_shock_market_raises_fees_and_shipping():
+    market = make_market()
+    shocked = pricing.shock_market(market, fee_delta_pt=0.03, ship_multiplier=1.4)
+
+    assert shocked.fees.commission_rate == pytest_approx(0.09)
+    assert shocked.fees.total_rate == pytest_approx(0.11)
+    assert shocked.shipping.base_jpy == pytest_approx(280.0)
+    assert shocked.shipping.per_kg_jpy == pytest_approx(1400.0)
+    # 元の market は変えない（複製を返す）
+    assert market.fees.commission_rate == 0.06
+
+
+def test_shock_market_leaves_other_fields_alone():
+    market = make_market()
+    shocked = pricing.shock_market(market, 0.03, 1.4)
+    assert shocked.fx_jpy_per_unit == market.fx_jpy_per_unit
+    assert shocked.currency == market.currency
+    assert shocked.shipping.max_weight_kg == market.shipping.max_weight_kg
+
+
+def test_healthy_margin_survives_the_pessimistic_case():
+    """目標利益率を確保していれば、暫定値が悪い方にぶれても黒字が残る。
+
+    これが成り立つから、実数を待たずにオペレーションを組み立ててよい。
+    """
+    market = make_market()
+    business = _business()
+    product = pricing.Product(sku="X", name_ja="標準的な商品", cost_jpy=1200, weight_g=150,
+                              length_cm=20, width_cm=15, height_cm=4)
+
+    target = pricing.price_for_margin(product, market, business.pricing, 0.25)
+    worst = pricing.quote_at_price(
+        product, pricing.shock_market(market, 0.03, 1.4), business.pricing, target.price_local
+    )
+    assert worst.profit_jpy > 0
+    assert worst.profit_jpy < target.profit_jpy        # 利益は確実に減る
+
+
+def test_thin_margin_can_flip_to_a_loss_under_shock():
+    """薄利の商品は悲観ケースで赤字に転ぶ。そこを検出できること。"""
+    market = make_market()
+    business = _business()
+    product = pricing.Product(sku="X", name_ja="薄利品", cost_jpy=800, weight_g=700)
+
+    # 損益分岐ぎりぎりで売った場合、悲観ケースでは必ず赤字になる
+    breakeven = pricing.breakeven_price(product, market, business.pricing)
+    worst = pricing.quote_at_price(
+        product, pricing.shock_market(market, 0.03, 1.4), business.pricing, breakeven
+    )
+    assert worst.profit_jpy < 0
+
+
+def test_account_status_defaults_to_active_when_absent():
+    """account_status を書いていない設定でも読めること。"""
+    import tempfile
+    import shutil
+
+    with tempfile.TemporaryDirectory() as d:
+        dst = Path(d)
+        for name in ("business.yaml", "markets.yaml", "compliance.yaml", "fulfillment.yaml"):
+            shutil.copy(config.CONFIG_DIR / name, dst / name)
+        text = (dst / "business.yaml").read_text(encoding="utf-8")
+        text = "\n".join(l for l in text.splitlines() if "account_status" not in l)
+        (dst / "business.yaml").write_text(text, encoding="utf-8")
+
+        assert config.load_business(dst).account_status == "active"
+
+
+def test_real_business_config_has_a_known_account_status():
+    assert config.load_business().account_status in ("pending", "active")
+
+
+def pytest_approx(expected: float, tol: float = 1e-9):
+    """pytest が無い環境でも動く簡易な近似比較。"""
+
+    class _Approx:
+        def __eq__(self, other: object) -> bool:
+            return abs(float(other) - expected) < tol  # type: ignore[arg-type]
+
+        def __repr__(self) -> str:  # pragma: no cover - 失敗時の表示用
+            return f"~{expected}"
+
+    return _Approx()
 
 
 if __name__ == "__main__":

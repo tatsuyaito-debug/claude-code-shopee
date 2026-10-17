@@ -50,6 +50,43 @@ def show_quote(label: str, quote: pricing.Quote, market) -> None:
           f" / 原価の {quote.markup_rate:.2f}倍で販売)")
 
 
+# 暫定値がどれだけ悪い方にぶれうるかの想定。
+# 手数料はプログラム加入やカテゴリで数ポイント上がることがあり、
+# SLS送料は重量帯の刻みしだいで実額がこの程度上振れする。
+FEE_SHOCK_PT = 0.03        # 手数料率 +3ポイント
+SHIP_SHOCK_MULT = 1.40     # 国際送料 +40%
+
+
+def show_stress(product, market, business, fulfillment, target: pricing.Quote) -> bool:
+    """暫定値が悪い方にぶれたとき、その売価のままで黒字が残るかを確かめる。
+
+    「仮の数字でオペレーションを作って進めてよいか」の判断材料。
+    悲観ケースでも黒字なら、実数を待たずに価格を決めて動き出してよい。
+    """
+    worst_market = pricing.shock_market(market, FEE_SHOCK_PT, SHIP_SHOCK_MULT)
+    worst = pricing.quote_at_price(
+        product, worst_market, business.pricing, target.price_local, fulfillment=fulfillment
+    )
+
+    print("\n── 暫定値のリスク確認 ──")
+    print(f"  もし実数が 手数料 {worst_market.fees.total_rate:.0%}（+{FEE_SHOCK_PT:.0%}pt）、"
+          f"国際送料 +{SHIP_SHOCK_MULT - 1:.0%} だったら:")
+    print(f"    売価 {target.price_local:,.0f} {market.currency} のまま → "
+          f"利益 {worst.profit_jpy:,.0f}円（利益率 {worst.margin_rate:.1%}）")
+
+    floor_jpy = business.pricing.min_profit_jpy
+    if worst.profit_jpy >= floor_jpy:
+        print(f"  ✅ 悲観ケースでも最低ライン {floor_jpy:,.0f}円 を確保できます。")
+        print("     暫定値のまま価格を決めて、出品まで進めて問題ありません。")
+        return True
+    if worst.profit_jpy > 0:
+        print(f"  ⚠️ 黒字は残りますが、最低ライン {floor_jpy:,.0f}円 を割ります。")
+        print("     出品は進めてよいですが、実数が出たら真っ先に価格を見直してください。")
+        return True
+    print("  ⛔ 悲観ケースでは赤字です。この商品は実数が確定するまで価格を確定しないこと。")
+    return False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Shopee越境販売の利益計算・推奨売価")
     parser.add_argument("--sku", help="商品マスタに登録済みのSKU")
@@ -101,8 +138,8 @@ def main(argv: list[str] | None = None) -> int:
         unverified.append("SLS国際送料")
     if unverified:
         print()
-        print(f"  ⚠️ {' と '.join(unverified)} がまだ仮の数字です（config/markets.yaml）。")
-        print("     この計算は目安です。実数の調べ方は python3 scripts/check_setup.py")
+        print(f"  ℹ️ {' と '.join(unverified)} は暫定値で運用中です（config/markets.yaml）。")
+        print("     実数が出たら差し替えます。下の「暫定値のリスク確認」も見てください。")
 
     if fulfillment.looks_unpriced():
         print()
@@ -121,6 +158,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  損益分岐点 : {result['breakeven_price_local']:,.2f} {market.currency}"
           f"（これ以下は赤字）")
 
+    stress_ok = True
+    if unverified:
+        stress_ok = show_stress(product, market, business, fulfillment, target)
+
     if "competitor_match" in result:
         show_quote(f"競合の {args.competitor:,.2f} {market.currency} に合わせた場合",
                    result["competitor_match"], market)  # type: ignore[arg-type]
@@ -131,7 +172,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  ⛔ {fulfillment.name_ja} の料金が未入力のため、この計算は信用できません。")
         print()
         return 2
-    if verdict.ok:
+    if verdict.ok and not stress_ok:
+        print("  ⚠️ 基準の数字では出品してよい条件ですが、暫定値が悪い方にぶれると赤字です。")
+        print("     この商品は、実数が確定してから価格を決めてください。")
+    elif verdict.ok:
         print("  ✅ 出品してよい条件です。")
     else:
         print("  ⛔ このままでは出品を勧めません:")

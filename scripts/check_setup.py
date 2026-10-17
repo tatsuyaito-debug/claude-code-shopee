@@ -99,6 +99,7 @@ def build_items() -> list[Item]:
     real_products, sample_products, missing_weight = catalog_state()
     units, units_note = monthly_units_shipped()
 
+    pending = business.account_status == "pending"
     items: list[Item] = []
 
     # ---------------- 為替 ----------------
@@ -121,11 +122,17 @@ def build_items() -> list[Item]:
     items.append(Item(
         key="fees",
         title="Shopeeの手数料率",
-        status=DONE if market.fees.verified else NOW,
+        status=DONE if market.fees.verified else (LATER if pending else NOW),
         minutes=20,
         now_value=(f"販売{market.fees.commission_rate:.1%} + 決済{market.fees.transaction_fee_rate:.1%}"
-                   f" = 合計{market.fees.total_rate:.1%}（仮の数字）"),
-        why="売上から率で引かれる。1%違うと推奨売価と損益分岐点が両方ずれる",
+                   f" = 合計{market.fees.total_rate:.1%}（暫定値で運用中）"),
+        why=(
+            "Seller Centre を見ないと分からない。アカウント開設前にできることはない。"
+            "暫定値のままでも、calc_price.py が悲観ケースを併記するので出品準備は進められる"
+            if pending else
+            "売上から率で引かれる。1%違うと推奨売価と損益分岐点が両方ずれる"
+        ),
+        trigger="アカウント開設が完了したら（Seller Centre にログインできるようになった日）",
         how=[
             "Seller Centre にログインして、手数料／マイ収益の案内ページを開く",
             "※ メニュー名は時期で変わるので、見つからなければサポートに聞くのが早い",
@@ -139,11 +146,16 @@ def build_items() -> list[Item]:
     items.append(Item(
         key="shipping",
         title="SLSの国際送料",
-        status=DONE if market.shipping.verified else NOW,
+        status=DONE if market.shipping.verified else (LATER if pending else NOW),
         minutes=20,
         now_value=(f"基本 {market.shipping.base_jpy:,.0f}円 + "
-                   f"{market.shipping.per_kg_jpy:,.0f}円/kg（仮の数字）"),
-        why="越境で利益を一番食う費目。ここが違うと「儲かるはずが赤字」になる",
+                   f"{market.shipping.per_kg_jpy:,.0f}円/kg（暫定値で運用中）"),
+        why=(
+            "正式な料金表は出店後に案内される。暫定値のままでも出品準備は進められる"
+            if pending else
+            "越境で利益を一番食う費目。ここが違うと「儲かるはずが赤字」になる"
+        ),
+        trigger="アカウント開設が完了したら（SLSの料金表が見られるようになった日）",
         how=[
             "Shopee Japan から案内されるSLSの料金表を開く",
             "台湾向けの、重量帯ごとの料金を見る",
@@ -246,6 +258,13 @@ def render(items: list[Item]) -> int:
     print("=" * 66)
     print(f"  セットアップ健診  {today}")
     print("=" * 66)
+
+    business = config.load_business()
+    if business.account_status == "pending":
+        print()
+        print("  📋 アカウント申請中です（config/business.yaml の account_status: pending）")
+        print("     Seller Centre を見ないと分からない設定は後回しにしています。")
+        print("     出店が完了したら account_status を active に変えてください。")
 
     groups = [
         (NOW, "■ いま埋める"),

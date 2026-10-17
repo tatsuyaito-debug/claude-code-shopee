@@ -251,6 +251,7 @@ def get_fulfillment(code: str | None = None, config_dir: Path | None = None) -> 
 @dataclass(frozen=True)
 class Business:
     shop_name: str
+    account_status: str     # pending（申請中） / active（出店済み）
     primary_market: str
     secondary_markets: list[str]
     logistics: str          # 越境の物流チャネル（SLS など）
@@ -355,6 +356,7 @@ def load_business(config_dir: Path | None = None) -> Business:
 
     return Business(
         shop_name=shop.get("name", ""),
+        account_status=str(shop.get("account_status", "active")).lower(),
         primary_market=_require(shop, "primary_market", f"{path}:shop"),
         secondary_markets=list(shop.get("secondary_markets") or []),
         logistics=shop.get("logistics", shop.get("fulfillment", "SLS")),

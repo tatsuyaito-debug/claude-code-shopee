@@ -342,6 +342,25 @@ def rank_candidates(products: Iterable[Product], market: Market, business: Busin
     return sorted(quotes, key=lambda q: q.profit_jpy, reverse=True)
 
 
+def shock_market(market: Market, fee_delta_pt: float = 0.0,
+                 ship_multiplier: float = 1.0) -> Market:
+    """手数料と国際送料を振った market の複製を作る。
+
+    手数料や送料がまだ暫定値のとき、「実数が想定より悪かったら赤字になるか」を
+    確かめるために使う。fee_delta_pt は率の加算（0.03 = +3ポイント）。
+    """
+    fees = replace(
+        market.fees,
+        commission_rate=max(0.0, market.fees.commission_rate + fee_delta_pt),
+    )
+    shipping = replace(
+        market.shipping,
+        base_jpy=market.shipping.base_jpy * ship_multiplier,
+        per_kg_jpy=market.shipping.per_kg_jpy * ship_multiplier,
+    )
+    return replace(market, fees=fees, shipping=shipping)
+
+
 def with_cost(product: Product, cost_jpy: float) -> Product:
     """仕入れ値だけ差し替えた複製（値引き交渉やセール価格の検討用）。"""
     return replace(product, cost_jpy=cost_jpy)
