@@ -738,6 +738,106 @@ def test_upload_plan_covers_every_local_image():
     assert plan.has_problems          # 2枚目が無いので
     assert "BIB-001" in plan.lines()[0]
 
+# ---------------------------------------------------------------------------
+# 仕入れ候補のスクリーニング
+# ---------------------------------------------------------------------------
+
+def _load_screen():
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import screen_candidates
+
+    return screen_candidates
+
+
+SCREEN_COMPLIANCE = {
+    "prohibited": [
+        {"id": "formula_milk", "label": "粉ミルク", "reason": "輸入規制",
+         "keywords": ["粉ミルク", "液体ミルク"]},
+    ],
+    "restricted": [
+        {"id": "teether", "label": "歯固め・おしゃぶり", "reason": "食品接触材料規制",
+         "check": "規格と試験成績書", "keywords": ["歯固め", "おしゃぶり"]},
+    ],
+}
+
+
+def test_prohibited_keyword_blocks_a_candidate():
+    sc = _load_screen()
+    verdict, reasons = sc.check_compliance("ベビー用 粉ミルク 800g", SCREEN_COMPLIANCE)
+    assert verdict == sc.VERDICT_NG
+    assert any("粉ミルク" in r for r in reasons)
+
+
+def test_restricted_keyword_flags_for_review():
+    sc = _load_screen()
+    verdict, reasons = sc.check_compliance("シリコン歯固め いちご型", SCREEN_COMPLIANCE)
+    assert verdict == sc.VERDICT_CHECK
+    assert any("試験成績書" in r for r in reasons)
+
+
+def test_clean_product_passes_compliance():
+    sc = _load_screen()
+    verdict, reasons = sc.check_compliance("日本製ガーゼスタイ 3枚組", SCREEN_COMPLIANCE)
+    assert verdict == sc.VERDICT_OK
+    assert reasons == []
+
+
+def test_prohibited_wins_over_restricted():
+    """禁止と要確認の両方に当たったら、禁止として扱う。"""
+    sc = _load_screen()
+    compliance = {
+        "prohibited": [{"id": "a", "label": "粉ミルク", "reason": "x", "keywords": ["ミルク"]}],
+        "restricted": [{"id": "b", "label": "食器", "reason": "y", "keywords": ["マグ"]}],
+    }
+    verdict, _ = sc.check_compliance("ミルク用マグ", compliance)
+    assert verdict == sc.VERDICT_NG
+
+
+def test_screening_sorts_sellable_first_then_by_profit():
+    sc = _load_screen()
+    market = make_market()
+    business = _business()
+    fulfillment = config.Fulfillment.none()
+
+    def cand(name, cost, weight):
+        return sc.Candidate(
+            name_ja=name,
+            product=pricing.Product(sku="X", name_ja=name, cost_jpy=cost, weight_g=weight),
+            images_provided=True,
+        )
+
+    results = sc.screen(
+        [cand("粉ミルク 800g", 2000, 100),      # 禁止カテゴリ
+         cand("安いスタイ", 1200, 100),         # 売れる・利益小
+         cand("高いポーチ", 2000, 100)],        # 売れる・利益大
+        market, business, fulfillment, SCREEN_COMPLIANCE,
+    )
+    # 仕入れてよいものが先。その中は利益額の大きい順。禁止は最後。
+    assert [c.name_ja for c in results[:2]] == ["高いポーチ", "安いスタイ"]
+    assert all(c.verdict == sc.VERDICT_OK for c in results[:2])
+    assert results[-1].name_ja == "粉ミルク 800g"
+    assert results[-1].verdict == sc.VERDICT_NG
+
+
+def test_missing_cost_or_weight_is_flagged_not_crashed():
+    sc = _load_screen()
+    market, business = make_market(), _business()
+    cand = sc.Candidate(
+        name_ja="重量未入力",
+        product=pricing.Product(sku="X", name_ja="重量未入力", cost_jpy=1000, weight_g=0),
+    )
+    results = sc.screen([cand], market, business, config.Fulfillment.none(), SCREEN_COMPLIANCE)
+    assert results[0].verdict == sc.VERDICT_CHECK
+    assert any("未入力" in r for r in results[0].reasons)
+
+
+def test_real_compliance_entries_carry_keywords():
+    """キーワードが消えると、スクリーニングが素通りしてしまう。"""
+    comp = config.load_compliance()
+    for section in ("prohibited", "restricted"):
+        with_kw = [e for e in comp[section] if e.get("keywords")]
+        assert with_kw, f"{section} にキーワード付きの項目がありません"
+
 
 if __name__ == "__main__":
     passed = failed = 0

@@ -9,48 +9,61 @@
 
 prohibited:   # 出品しない。AI社員は候補から機械的に除外する
   - id: formula_milk
+    keywords: [粉ミルク, 液体ミルク, フォローアップミルク, 調製粉乳]
     label: 粉ミルク・乳児用液体ミルク
     reason: 多くの国で輸入規制対象。食品衛生・表示規制が非常に厳しい
   - id: baby_food
+    keywords: [ベビーフード, 離乳食, 幼児food, レトルト離乳]
     label: ベビーフード・離乳食（中身のある food itself）
     reason: 食品輸入許可が必要。個人セラーの越境では原則不可
   - id: medicine_supplement
+    keywords: [薬, 軟膏, サプリ, ビタミン剤, 医薬]
     label: 乳児用の薬・サプリ・軟膏類
     reason: 医薬品規制。無許可輸入は違法になりうる
   - id: car_seat
+    keywords: [チャイルドシート, ジュニアシート, ベビーシート, カーシート]
     label: チャイルドシート・ジュニアシート
     reason: 各国の安全規格(ECE/JIS等)認証が必要。事故時の責任が重い
   - id: crib_bedding_soft
+    keywords: [ベビー枕, ベビー布団, ベビーベッド, 寝かしつけクッション]
     label: ベビーベッド用のふかふか寝具・枕（乳児用）
     reason: 窒息リスクで規制・回収対象になりやすい
   - id: used_babygoods_intimate
+    keywords: [中古, USED, お下がり]
     label: 中古の哺乳瓶・おしゃぶり・肌着など衛生品
     reason: 衛生規制および Shopee の中古品ポリシーに抵触しやすい
   - id: counterfeit_character
+    keywords: [非正規, 並行輸入品のキャラ, コピー品, レプリカ]
     label: 非正規のキャラクター商品
     reason: 知的財産権侵害。アカウント即停止の最頻出要因
   - id: lithium_battery_toy
+    keywords: [電池内蔵, 充電式, ベビーモニター, リチウム]
     label: リチウム電池内蔵のおもちゃ・ベビーモニター
     reason: 航空危険物。SLSで送れない / 追加書類が必要
 
 restricted:   # 出品前に必ず確認。AI社員は「要確認」フラグを立てて人間に回す
   - id: teether_pacifier
+    keywords: [歯固め, おしゃぶり, 固齒器]
     label: 歯固め・おしゃぶり
     reason: 口に入る製品は食品接触材料規制の対象になる国がある
     check: 輸入先国の乳幼児製品規格と、メーカーの試験成績書の有無
   - id: skincare
+    keywords: [ローション, クリーム, 日焼け止め, 保湿, オイル]
     label: ベビーローション・クリーム・日焼け止め
     reason: 化粧品登録が必要な国が多い（特にMY/ID）
     check: 対象国の化粧品規制。台湾は比較的通るが品目による
   - id: tableware
+    keywords: [食器, カトラリー, スプーン, ストローマグ, マグ, お皿]
     label: ベビー食器・カトラリー・ストローマグ
     reason: 食品接触材料の溶出試験が求められる場合がある
     check: 素材（BPAフリー表記の根拠）とメーカー資料
   - id: sling_carrier
+    keywords: [抱っこ紐, スリング, ヒップシート, おんぶ紐]
     label: 抱っこ紐・スリング
     reason: 安全基準あり。落下事故のリスク商品
     check: 規格認証の有無。無認証の無名ブランドは扱わない
   - id: toy_small_parts
+    keywords: [おもちゃ, 知育玩具, ラトル, 積み木]
     label: 3歳未満向けおもちゃ全般
     reason: 誤飲・小部品規制、玩具安全基準(EN71/ST等)
     check: 年齢表示と安全基準マークの有無

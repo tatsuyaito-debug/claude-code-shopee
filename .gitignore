@@ -11,6 +11,7 @@ secrets.yaml
 # 生成物
 data/products/upload_*.csv
 data/products/画像アップロード手順_*.md
+data/research/判定結果.md
 
 # 商品写真（容量が大きいのでリポジトリには入れない。手元に置く）
 data/products/images/*/

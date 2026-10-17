@@ -35,6 +35,7 @@ config/           事業の設定。数字の判断はすべてここが根拠
   csv_templates/    Shopee CSV の列マッピング     ★実テンプレに要差し替え
 scripts/          道具。AIはこれを実行して答えを出す
   check_setup.py          設定の健診。何がまだ仮の数字か、いつ埋めるべきか
+  screen_candidates.py    仕入れ候補のまとめ判定（規制・利益・順位付け）
   calc_price.py           利益計算・推奨売価
   compare_fulfillment.py  自社発送と発送代行の損得比較
   build_listing_csv.py    出品案の検証とCSV書き出し
@@ -45,6 +46,7 @@ data/
   products/drafts/        出品案のYAML
   products/images/<SKU>/  商品写真（01-cover.jpg … の順。CSVには載らない）
   orders/                 Seller Centre から落とした注文CSV
+  research/candidates.csv 仕入れ候補の記録シート
   reports/                生成されたレポート
 templates/cs/     顧客対応の定型文（繁体字・英語）
 docs/             人間向けマニュアル
