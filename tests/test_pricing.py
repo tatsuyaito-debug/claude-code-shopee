@@ -622,6 +622,122 @@ def pytest_approx(expected: float, tol: float = 1e-9):
 
     return _Approx()
 
+# ---------------------------------------------------------------------------
+# 商品画像（CSVに載らないぶんの取り回し）
+# ---------------------------------------------------------------------------
+
+def _png_bytes(width: int, height: int) -> bytes:
+    import struct as _struct
+    import zlib
+
+    raw = b"".join(b"\x00" + b"\xcc\xdd\xee" * width for _ in range(height))
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        body = tag + data
+        return _struct.pack(">I", len(data)) + body + _struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", _struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(raw))
+        + chunk(b"IEND", b"")
+    )
+
+
+def _jpeg_bytes(width: int, height: int) -> bytes:
+    import struct as _struct
+
+    # SOF0 だけを持つ最小構成。寸法が読めれば十分なのでスキャンデータは入れない。
+    sof = b"\xff\xc0" + _struct.pack(">HBHHB", 11, 8, height, width, 1) + b"\x00\x00\x00"
+    return b"\xff\xd8" + sof + b"\xff\xd9"
+
+
+def test_url_and_local_refs_are_separated():
+    from shopee import images
+
+    urls, local = images.split_refs(
+        ["https://example.com/a.jpg", "01-cover.jpg", "http://example.com/b.png"]
+    )
+    assert urls == ["https://example.com/a.jpg", "http://example.com/b.png"]
+    assert local == ["01-cover.jpg"]
+
+
+def test_png_dimensions_are_read_without_pillow():
+    from shopee import images
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "a.png"
+        path.write_bytes(_png_bytes(640, 480))
+        assert images.read_dimensions(path) == (640, 480)
+
+
+def test_jpeg_dimensions_are_read_without_pillow():
+    from shopee import images
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "a.jpg"
+        path.write_bytes(_jpeg_bytes(1200, 1200))
+        assert images.read_dimensions(path) == (1200, 1200)
+
+
+def test_check_image_flags_small_and_non_square():
+    from shopee import images
+    import tempfile
+
+    limits = {"image_min_px": 500, "image_recommended_px": 1000, "image_max_mb": 2.0}
+    with tempfile.TemporaryDirectory() as d:
+        good = Path(d) / "good.png"
+        good.write_bytes(_png_bytes(1000, 1000))
+        assert images.check_image(good, limits).ok
+
+        small = Path(d) / "small.png"
+        small.write_bytes(_png_bytes(300, 300))
+        assert any("小さすぎ" in p for p in images.check_image(small, limits).problems)
+
+        wide = Path(d) / "wide.png"
+        wide.write_bytes(_png_bytes(1200, 800))
+        assert any("正方形" in p for p in images.check_image(wide, limits).problems)
+
+
+def test_check_image_reports_a_missing_file():
+    from shopee import images
+
+    check = images.check_image(Path("/nowhere/none.jpg"))
+    assert not check.exists
+    assert any("見つかりません" in p for p in check.problems)
+
+
+def test_local_image_filenames_never_reach_the_csv():
+    """手元のファイル名をCSVに書いてもShopeeは取得できないので、空欄にする。"""
+    draft = listing.ListingDraft(
+        sku="X", market_code="TW", title="t" * 30, description="d" * 300,
+        price_local=500, stock=1, weight_g=100,
+        images=["01-cover.jpg", "https://example.com/b.jpg", "03-size.png"],
+    )
+    row = draft.to_row()
+    assert row["image_1"] == "https://example.com/b.jpg"
+    assert row["image_2"] == ""
+    assert "01-cover.jpg" not in row.values()
+
+
+def test_upload_plan_covers_every_local_image():
+    from shopee import images
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "BIB-001").mkdir()
+        (root / "BIB-001" / "01-cover.png").write_bytes(_png_bytes(1000, 1000))
+
+        plan = images.build_upload_plan(
+            "BIB-001", "スタイ", ["01-cover.png", "02-missing.jpg"], root=root
+        )
+    assert len(plan.checks) == 2
+    assert plan.has_problems          # 2枚目が無いので
+    assert "BIB-001" in plan.lines()[0]
+
 
 if __name__ == "__main__":
     passed = failed = 0

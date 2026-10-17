@@ -59,8 +59,13 @@ class ListingDraft:
             "width_cm": f"{self.width_cm:g}",
             "height_cm": f"{self.height_cm:g}",
         }
+        # CSVに載せられるのは画像の「URL」だけ。手元のファイル名を書いても
+        # Shopee側は取得できないので、URL以外は空欄にして手動アップロードに回す。
+        from .images import is_url
+
+        urls = [ref for ref in self.images if is_url(ref)]
         for i in range(1, 10):
-            row[f"image_{i}"] = self.images[i - 1] if len(self.images) >= i else ""
+            row[f"image_{i}"] = urls[i - 1] if len(urls) >= i else ""
         return row
 
 

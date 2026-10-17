@@ -20,7 +20,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from shopee import config, listing  # noqa: E402
+from shopee import config, images as images_mod, listing  # noqa: E402
 
 
 def load_drafts(path: Path) -> tuple[str, str, list[listing.ListingDraft]]:
@@ -107,7 +107,63 @@ def main(argv: list[str] | None = None) -> int:
     print(f"📄 CSVを書き出しました: {path}")
     print("   Seller Centre > 商品管理 > 一括ツール からアップロードしてください。")
     print("   ※ 列名が合わずに弾かれたら config/csv_templates/ のテンプレを実物に合わせて直すこと。")
+
+    write_image_plan(drafts, compliance, out.parent / f"画像アップロード手順_{market_code}.md")
     return 0
+
+
+def write_image_plan(drafts, compliance, dest: Path) -> Path | None:
+    """CSVに乗らない画像のぶんだけ、手動アップロードの手順を書き出す。
+
+    画像ファイルそのものはCSVに入らないので、CSVを上げたあとに
+    Seller Centre の商品編集画面で1商品ずつ入れることになる。その手順書。
+    """
+    limits = compliance.get("limits") or {}
+    plans = []
+    for draft in drafts:
+        urls, local = images_mod.split_refs(draft.images)
+        if not local:
+            continue
+        plans.append((draft, urls, images_mod.build_upload_plan(
+            draft.sku, draft.name_ja or draft.sku, local, limits)))
+
+    if not plans:
+        print("\n🖼  画像はすべてURL指定なので、CSVに含めました。手動アップロードは不要です。")
+        return None
+
+    print(f"\n🖼  画像 {sum(len(p.checks) for _, _, p in plans)}枚は手動アップロードが必要です")
+    print("    （画像ファイルはCSVに載らないため、Seller Centre の商品編集画面で入れます）")
+
+    lines = [
+        "# 画像アップロード手順",
+        "",
+        "CSVをアップロードして商品が作られたあと、**Seller Centre の商品編集画面**で",
+        "1商品ずつ写真を入れます。画像ファイルはCSVに載せられないため、ここだけは手作業です。",
+        "",
+        "並び順が大事です。**1枚目（カバー）が一覧に出る絵**なので、ここで決まります。",
+        "",
+    ]
+    problem_count = 0
+    for draft, urls, plan in plans:
+        lines.append(f"## {plan.sku}　{plan.name_ja}")
+        lines.append("")
+        if urls:
+            lines.append(f"- URL指定ぶん {len(urls)}枚はCSVに入っています（手動は不要）")
+        for line in plan.lines():
+            lines.append(line)
+        if plan.has_problems:
+            problem_count += 1
+        lines.append("")
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("\n".join(lines), encoding="utf-8")
+    print(f"    📄 手順を書き出しました: {dest}")
+    if problem_count:
+        print(f"    ⚠️ {problem_count}商品の画像に直したほうがよい点があります（手順書に記載）")
+    for _, _, plan in plans:
+        for line in plan.lines():
+            print(f"    {line}")
+    return dest
 
 
 if __name__ == "__main__":

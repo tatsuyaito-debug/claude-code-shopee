@@ -43,6 +43,7 @@ scripts/          道具。AIはこれを実行して答えを出す
 data/
   products/products.csv   商品マスタ（原価・重量・在庫）
   products/drafts/        出品案のYAML
+  products/images/<SKU>/  商品写真（01-cover.jpg … の順。CSVには載らない）
   orders/                 Seller Centre から落とした注文CSV
   reports/                生成されたレポート
 templates/cs/     顧客対応の定型文（繁体字・英語）
@@ -65,6 +66,8 @@ tests/            計算ロジックのテスト
   自社発送か発送代行かで、作業フロー・リードタイム・原価が変わる
 - 発送方法の切り替えを聞かれたら `python3 scripts/compare_fulfillment.py` を実行する
 - 出品CSVを作る前に `--check-only` で検証を通す
+- **画像ファイルはCSVに載らない。** CSVで商品の骨格を作ったあと、
+  Seller Centre の商品編集画面で手動アップロードする2段構えであることを必ず伝える
 - 売上・利益を語る前に `python3 scripts/weekly_report.py` を実行する
 - `config/markets.yaml` の為替が古い警告が出たら、**数字を語る前に更新を依頼する**
 - 計算ロジックを変えたら `python3 tests/test_pricing.py` を実行する（pytest があれば `python3 -m pytest tests/ -q`）

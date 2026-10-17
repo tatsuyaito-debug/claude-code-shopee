@@ -69,6 +69,7 @@ python3 scripts/build_listing_csv.py data/products/drafts/2026-03-01_tw.yaml --a
 ```
 
 6. できたCSVを Seller Centre > 商品管理 > 一括ツール からアップロードしてもらう
+7. **商品が作られたら、画像アップロード手順書を見ながら写真を入れてもらう**（CSVでは入らない）
 
 > 列名が合わずに弾かれたら、Seller Centre から本物のテンプレートを1度ダウンロードして、
 > その1行目の列名を `config/csv_templates/default_mass_upload.yaml` の `header` に写す。
@@ -84,6 +85,27 @@ python3 scripts/build_listing_csv.py data/products/drafts/2026-03-01_tw.yaml --a
 - **他社ブランド名**（〇〇風、△△と同等）→ 商標権侵害
 
 ## 画像について（文章より効く）
+
+### 重要：画像はCSVに載らない
+
+一括アップロードCSVに書けるのは**画像のURLだけ**で、手元の画像ファイルは入らない。
+そのため出品は**2段構え**になる。
+
+```
+1. CSVで商品の骨格を作る（タイトル・説明・価格・在庫・サイズ）→ 一括アップロード
+2. Seller Centre の商品編集画面で、写真を1商品ずつ入れる  ← ここは手作業
+```
+
+写真は `data/products/images/<SKU>/` に、`01-cover.jpg` `02-scene.jpg` … と
+**先頭に番号を振って**置いてもらう。その番号がそのまま出品の並び順になる。
+
+`build_listing_csv.py` を流すと、サイズ・正方形かどうかを自動チェックして、
+**どのSKUに何枚目として入れるか**の手順書（`data/products/画像アップロード手順_<市場>.md`）を書き出す。
+オーナーにはその手順書を見ながら作業してもらう。
+
+公開URLがある場合（すでにShopeeにアップ済み等）は `https://...` と書けばCSVに含まれる。
+
+### 並び順と役割
 
 出品の成否は画像で8割決まる。最低3枚、できれば5枚以上。
 

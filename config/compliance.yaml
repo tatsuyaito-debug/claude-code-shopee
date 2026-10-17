@@ -113,3 +113,8 @@ limits:
   description_min_chars: 200
   images_min: 3
   images_max: 9
+
+# 画像の目安（Shopeeの推奨に合わせて調整してください）
+  image_min_px: 500            # これ未満は出品に耐えない
+  image_recommended_px: 1000   # これ以上あると綺麗に見える
+  image_max_mb: 2.0            # 1枚あたりのファイルサイズ上限

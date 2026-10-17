@@ -49,9 +49,12 @@ listings:
     width_cm: 15
     height_cm: 4
 
-    # 画像URL（最低3枚）。Shopeeにアップ済みのURL、または画像ファイル名。
+    # 画像（最低3枚）。data/products/images/<SKU>/ に置いたファイル名を書きます。
+    # 先頭の番号がそのまま出品の並び順になります。
+    # 画像ファイルはCSVに載らないので、CSV投入後に Seller Centre で手動アップロードします。
+    # （公開URLがある場合は https://... と書けばCSVに含められます）
     images:
-      - "https://example.com/bib-001-main.jpg"
-      - "https://example.com/bib-001-detail.jpg"
-      - "https://example.com/bib-001-size.jpg"
-      - "https://example.com/bib-001-usage.jpg"
+      - "01-cover.jpg"
+      - "02-scene.jpg"
+      - "03-size.jpg"
+      - "04-detail.jpg"
