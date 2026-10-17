@@ -838,6 +838,68 @@ def test_real_compliance_entries_carry_keywords():
         with_kw = [e for e in comp[section] if e.get("keywords")]
         assert with_kw, f"{section} にキーワード付きの項目がありません"
 
+# ---------------------------------------------------------------------------
+# 売価から許容仕入れ原価の逆算（リサーチ中に使う）
+# ---------------------------------------------------------------------------
+
+def test_max_cost_is_the_inverse_of_price_for_margin():
+    """原価→売価 と 売価→原価 が往復で一致すること。"""
+    market = make_market()
+    policy = make_policy()
+    product = pricing.Product(sku="X", name_ja="商品", cost_jpy=1200, weight_g=150,
+                              length_cm=20, width_cm=15, height_cm=4)
+
+    quote = pricing.price_for_margin(product, market, policy, 0.25, apply_ending=False)
+    back = pricing.max_cost_jpy(product, market, policy, quote.price_local, 0.25)
+    assert abs(back - 1200) < 1.0
+
+
+def test_max_cost_accounts_for_fulfillment_cost():
+    """発送費が高いほど、仕入れに回せる金額は減る。"""
+    market = make_market()
+    policy = make_policy()
+    product = pricing.Product(sku="X", name_ja="商品", cost_jpy=0, weight_g=150)
+
+    free = pricing.max_cost_jpy(product, market, policy, 700, 0.25,
+                                fulfillment=config.Fulfillment.none())
+    paid = pricing.max_cost_jpy(product, market, policy, 700, 0.25,
+                                fulfillment=make_fulfillment())
+    assert free - paid == pytest_approx(360.0)
+
+
+def test_max_cost_returns_the_shelf_price_when_points_apply():
+    """ポイント還元ぶんだけ、仕入れ先の値札は高くても成立する。"""
+    market = make_market()
+    policy = make_policy()
+    plain = pricing.Product(sku="X", name_ja="商品", cost_jpy=0, weight_g=150)
+    with_points = pricing.Product(sku="X", name_ja="商品", cost_jpy=0, weight_g=150,
+                                  points_back_rate=0.10)
+
+    without = pricing.max_cost_jpy(plain, market, policy, 700, 0.25)
+    with_pt = pricing.max_cost_jpy(with_points, market, policy, 700, 0.25)
+    assert with_pt > without
+    assert with_pt == pytest_approx(without / 0.9)
+
+
+def test_max_cost_for_profit_matches_the_resulting_quote():
+    """利益額で置いた上限原価で仕入れると、本当にその利益が出ること。"""
+    market = make_market()
+    policy = make_policy()
+    product = pricing.Product(sku="X", name_ja="商品", cost_jpy=0, weight_g=150)
+
+    cap = pricing.max_cost_for_profit_jpy(product, market, policy, 700, 400.0)
+    quote = pricing.quote_at_price(pricing.with_cost(product, cap), market, policy, 700)
+    assert abs(quote.profit_jpy - 400.0) < 1.0
+
+
+def test_max_cost_goes_negative_when_the_price_is_too_low():
+    """安すぎる価格帯では、原価0円でも利益が出ないことを示す。"""
+    market = make_market()
+    policy = make_policy()
+    product = pricing.Product(sku="X", name_ja="重い商品", cost_jpy=0, weight_g=900)
+
+    assert pricing.max_cost_jpy(product, market, policy, 150, 0.25) < 0
+
 
 if __name__ == "__main__":
     passed = failed = 0

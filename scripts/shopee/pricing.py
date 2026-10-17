@@ -342,6 +342,47 @@ def rank_candidates(products: Iterable[Product], market: Market, business: Busin
     return sorted(quotes, key=lambda q: q.profit_jpy, reverse=True)
 
 
+def max_cost_jpy(product: Product, market: Market, policy: PricingPolicy,
+                 price_local: float, margin_rate: float,
+                 fulfillment: Fulfillment | None = None,
+                 count_points: bool = True) -> float:
+    """「この売価なら、仕入れはいくらまで許されるか」を逆算する。
+
+    リサーチ中に競合価格を見ながら使う。price_for_margin の逆方向。
+    返すのは店頭価格（ポイント還元前）なので、そのまま仕入れ先の値札と比べられる。
+    """
+    fx = effective_fx(market, policy)
+    revenue_jpy = price_local * fx
+    ff = fulfillment or Fulfillment.none()
+    other_costs = ff.per_unit_jpy + international_ship_jpy(product, market)
+
+    allowed_effective = (
+        revenue_jpy * (1.0 - variable_rate(market, policy) - margin_rate)
+        - market.fees.fixed_fee_local * fx
+        - other_costs
+    )
+    if count_points and product.points_back_rate:
+        # 実質原価 = 店頭価格 × (1 - 還元率) なので、店頭価格に戻す
+        allowed_effective /= (1.0 - product.points_back_rate)
+    return allowed_effective
+
+
+def max_cost_for_profit_jpy(product: Product, market: Market, policy: PricingPolicy,
+                            price_local: float, profit_jpy: float,
+                            fulfillment: Fulfillment | None = None,
+                            count_points: bool = True) -> float:
+    """目標を「率」ではなく「1個あたりの利益額」で置いたときの許容仕入れ原価。"""
+    fx = effective_fx(market, policy)
+    revenue_jpy = price_local * fx
+    if revenue_jpy <= 0:
+        return 0.0
+    return max_cost_jpy(
+        product, market, policy, price_local,
+        margin_rate=profit_jpy / revenue_jpy,
+        fulfillment=fulfillment, count_points=count_points,
+    )
+
+
 def shock_market(market: Market, fee_delta_pt: float = 0.0,
                  ship_multiplier: float = 1.0) -> Market:
     """手数料と国際送料を振った market の複製を作る。

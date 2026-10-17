@@ -10,6 +10,9 @@
 
     # 競合が399TWDで売っている。合わせたら儲かるか？
     python3 scripts/calc_price.py --sku BIB-001 --competitor 399
+
+    # 逆算：台湾で699元で売られている。仕入れいくらまでなら勝負できる？
+    python3 scripts/calc_price.py --from-price 699 --weight 200 --size 20x15x5
 """
 
 from __future__ import annotations
@@ -87,6 +90,68 @@ def show_stress(product, market, business, fulfillment, target: pricing.Quote) -
     return False
 
 
+def show_max_cost(product, market, business, fulfillment, price_local: float) -> int:
+    """「この売価なら仕入れはいくらまで許されるか」を出す。
+
+    台湾のShopeeで競合価格を見ながら、仕入れ先の値札と直接比べるための道具。
+    """
+    policy = business.pricing
+    count_points = bool((business.sourcing or {}).get("count_points_as_discount", True))
+    fx = pricing.effective_fx(market, policy)
+    revenue = price_local * fx
+    intl = pricing.international_ship_jpy(product, market)
+
+    print("=" * 68)
+    print(f"  逆算：{price_local:,.0f} {market.currency} で売るなら、仕入れはいくらまで？")
+    print(f"  販売先: {market.name_ja}({market.code})   "
+          f"為替: 1{market.currency} = {market.fx_jpy_per_unit}円")
+    print(f"  発送　: {fulfillment.name_ja}   発送費 {fulfillment.per_unit_jpy:,.0f}円 / "
+          f"請求重量 {pricing.billable_weight_kg(product, market):.2f}kg")
+    print("=" * 68)
+    print()
+    print(f"  売上（為替バッファ込み）        {revenue:,.0f}円")
+    print(f"  ├ Shopee手数料・広告・返品ロス  -{revenue * pricing.variable_rate(market, policy):,.0f}円")
+    print(f"  ├ 発送費                        -{fulfillment.per_unit_jpy:,.0f}円")
+    print(f"  └ 国際送料                      -{intl:,.0f}円")
+    print()
+    print("  ▶ 仕入れに使える上限（この金額以下で仕入れれば勝てる）")
+
+    lines = [
+        (f"目標利益率 {policy.target_margin_rate:.0%} を確保",
+         pricing.max_cost_jpy(product, market, policy, price_local,
+                              policy.target_margin_rate, fulfillment, count_points)),
+        (f"最低利益 {policy.min_profit_jpy:,.0f}円 を確保",
+         pricing.max_cost_for_profit_jpy(product, market, policy, price_local,
+                                         policy.min_profit_jpy, fulfillment, count_points)),
+        ("損益分岐（利益ゼロ）",
+         pricing.max_cost_jpy(product, market, policy, price_local, 0.0,
+                              fulfillment, count_points)),
+    ]
+    for label, value in lines:
+        if value <= 0:
+            print(f"      {label:<28} 仕入れ原価0円でも足りません")
+        else:
+            print(f"      {label:<28} {value:>8,.0f}円 まで")
+
+    target_max = lines[0][1]
+    if product.points_back_rate:
+        print()
+        print(f"  ※ ポイント還元 {product.points_back_rate:.0%} を見込んだ、仕入れ先の表示価格です")
+
+    print()
+    if target_max <= 0:
+        print("  ⛔ この価格では、どんなに安く仕入れても利益が出ません。")
+        print("     重量を減らすか、この価格帯から降りてください。")
+        return 2
+    if target_max < 300:
+        print(f"  ⚠️ 上限 {target_max:,.0f}円 はかなり厳しい水準です。")
+        print("     この価格帯は捨てて、別の商品か別の価格帯を探すほうが早いです。")
+        return 2
+    print(f"  ✅ 仕入れ値を {target_max:,.0f}円 以下に抑えられるなら、この価格帯で戦えます。")
+    print("     仕入れ先の値札と直接比べてください。")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Shopee越境販売の利益計算・推奨売価")
     parser.add_argument("--sku", help="商品マスタに登録済みのSKU")
@@ -99,6 +164,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--competitor", type=float, help="競合の売価（現地通貨）")
     parser.add_argument("--fulfillment", help="発送主体（既定: fulfillment.yaml の active）"
                                               " 例: self / shopeeking")
+    parser.add_argument("--from-price", type=float, metavar="PRICE",
+                        help="逆算モード。この売価（現地通貨）で売る場合の、仕入れ原価の上限を出す")
     args = parser.parse_args(argv)
 
     business = config.load_business()
@@ -113,13 +180,18 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         product = products[args.sku]
     else:
-        if args.cost is None or args.weight is None:
-            parser.error("--sku を使わない場合は --cost と --weight が必要です")
+        if args.weight is None:
+            parser.error("--sku を使わない場合は --weight が必要です")
+        if args.cost is None and args.from_price is None:
+            parser.error("--sku を使わない場合は --cost が必要です（--from-price の逆算モードを除く）")
         product = pricing.Product(
-            sku="TEMP", name_ja=args.name, cost_jpy=args.cost, weight_g=args.weight,
+            sku="TEMP", name_ja=args.name, cost_jpy=args.cost or 0.0, weight_g=args.weight,
             length_cm=args.size[0], width_cm=args.size[1], height_cm=args.size[2],
             points_back_rate=args.points,
         )
+
+    if args.from_price is not None:
+        return show_max_cost(product, market, business, fulfillment, args.from_price)
 
     result = pricing.recommend(product, market, business, args.competitor, fulfillment)
 

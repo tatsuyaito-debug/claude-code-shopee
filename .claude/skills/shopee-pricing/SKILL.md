@@ -24,7 +24,14 @@ python3 scripts/calc_price.py --sku BIB-001 --market SG
 
 # 発送代行に任せた場合の価格
 python3 scripts/calc_price.py --sku BIB-001 --fulfillment shopeeking
+
+# 逆算：台湾で699元で売られている。仕入れいくらまでなら勝負できる？
+python3 scripts/calc_price.py --from-price 699 --weight 200 --size 20x15x5
 ```
+
+**リサーチ中は逆算モードを使う。** 「この商品どう？」ではなく
+「台湾でこの価格帯なら、仕入れいくらまで？」のほうが答えが速く、
+仕入れ先の値札と直接比べられる。
 
 **発送費は「誰が発送するか」で変わる。** `config/fulfillment.yaml` の `active` が
 発送代行（ShopeeKing等）になっていると、梱包代行料・入庫料・月額費の按分が原価に乗る。
